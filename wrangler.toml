@@ -1,0 +1,8 @@
+name = "operator-kaplongan"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "SIMOPS_STORE"
+id = "006e089252974814a638d98aebeab1c3"
+
