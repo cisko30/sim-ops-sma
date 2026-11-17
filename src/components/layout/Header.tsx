@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SCHOOL_INFO as DEFAULT_SCHOOL_INFO } from '../../data/mockData';
 import { SchoolInfo } from '../../types';
 
@@ -83,6 +83,19 @@ export const Header: React.FC<HeaderProps> = ({
   onManualSync
 }) => {
   const school = propSchoolInfo || DEFAULT_SCHOOL_INFO;
+
+  // Dynamic initials for operator avatar
+  const initials = useMemo(() => {
+    const rawName = (school.operatorName || 'Operator')
+      .replace(/^(H\.|Hj\.|Drs\.|Dr\.|Ir\.|M\.)\s*/i, '')
+      .trim();
+    const cleanName = rawName.split(',')[0].trim();
+    const names = cleanName.split(/\s+/).filter(Boolean);
+    if (names.length >= 2) {
+      return (names[0][0] + names[1][0]).toUpperCase();
+    }
+    return cleanName.substring(0, 2).toUpperCase();
+  }, [school.operatorName]);
   
   // Dark Mode State
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -411,15 +424,19 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* User profile */}
-        <div className="flex items-center gap-space-sm pl-space-sm border-l border-surface-container">
-          <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs ring-2 ring-primary/20 shadow-xs">
-            BP
+        <div
+          onClick={() => onNavigate?.('profil-sekolah')}
+          className="flex items-center gap-2 pl-3 border-l border-surface-container dark:border-slate-800 cursor-pointer group"
+          title="Buka Pengaturan Profil Sekolah"
+        >
+          <div className="w-8 h-8 rounded-full bg-primary dark:bg-sky-500/20 text-white dark:text-sky-300 flex items-center justify-center font-bold text-xs ring-2 ring-primary/20 dark:ring-sky-500/30 shadow-xs group-hover:scale-105 transition-transform">
+            {initials}
           </div>
           <div className="hidden md:flex flex-col text-left">
-            <span className="font-label-md text-label-md text-on-surface font-bold leading-tight">
+            <span className="font-label-md text-xs text-on-surface dark:text-slate-100 font-bold leading-tight group-hover:text-primary dark:group-hover:text-sky-400 transition-colors">
               {school.operatorName}
             </span>
-            <span className="font-label-sm text-label-sm text-on-surface-variant leading-tight">
+            <span className="font-label-sm text-[11px] text-on-surface-variant dark:text-slate-400 leading-tight">
               {school.operatorRole}
             </span>
           </div>

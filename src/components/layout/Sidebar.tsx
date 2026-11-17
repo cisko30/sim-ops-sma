@@ -142,11 +142,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Operator initials for avatar
   const initials = useMemo(() => {
-    const names = (school.operatorName || 'Bagas Pratama').split(' ');
+    const rawName = (school.operatorName || 'Operator')
+      .replace(/^(H\.|Hj\.|Drs\.|Dr\.|Ir\.|M\.)\s*/i, '')
+      .trim();
+    const cleanName = rawName.split(',')[0].trim();
+    const names = cleanName.split(/\s+/).filter(Boolean);
     if (names.length >= 2) {
       return (names[0][0] + names[1][0]).toUpperCase();
     }
-    return names[0].substring(0, 2).toUpperCase();
+    return cleanName.substring(0, 2).toUpperCase();
   }, [school.operatorName]);
 
   return (
