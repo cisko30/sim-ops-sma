@@ -13,8 +13,8 @@ export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({ onAction }) 
   ];
 
   return (
-    <div className="bg-gradient-to-br from-surface-container-lowest to-surface-container-low p-space-lg rounded-xl shadow-sm flex flex-col gap-space-sm border border-surface-container">
-      <span className="font-label-md text-label-md text-primary font-bold uppercase tracking-wider">
+    <div className="bg-surface-container-lowest dark:bg-slate-900 p-space-lg rounded-2xl shadow-xs flex flex-col gap-space-sm border border-surface-container/80 dark:border-slate-800">
+      <span className="font-label-md text-label-md text-primary dark:text-sky-400 font-bold uppercase tracking-wider">
         Aksi Cepat Data
       </span>
       <div className="grid grid-cols-2 gap-space-sm">
@@ -22,13 +22,13 @@ export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({ onAction }) 
           <button
             key={act.id}
             onClick={() => onAction?.(act.id)}
-            className="p-space-sm rounded-lg bg-surface-container-lowest shadow-sm hover:shadow hover:bg-surface-container-low transition-all flex items-center gap-2 text-on-surface border border-surface-container text-left cursor-pointer active:scale-95"
+            className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs transition-all flex items-center gap-2.5 text-slate-700 dark:text-slate-200 hover:text-primary dark:hover:text-sky-400 text-left cursor-pointer active:scale-95"
             type="button"
           >
-            <span className="material-symbols-outlined text-secondary text-xl">
+            <span className="material-symbols-outlined text-sky-500 dark:text-sky-400 text-xl">
               {act.icon}
             </span>
-            <span className="font-headline-sm text-body-sm font-semibold truncate">
+            <span className="font-headline-sm text-xs font-semibold truncate">
               {act.name}
             </span>
           </button>

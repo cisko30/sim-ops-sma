@@ -58,24 +58,24 @@ export const PIPPipelineCard: React.FC<PIPPipelineCardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-        <div className="p-4 rounded-xl bg-surface-container-low/70 border border-surface-container">
-          <span className="text-[11px] text-on-surface-variant font-medium block">Total Siswa Terdaftar PIP</span>
-          <div className="text-2xl font-bold text-primary mt-1">{totalPip} Siswa</div>
-          <span className="text-[10.5px] text-emerald-700 font-semibold mt-0.5 block">
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">Total Siswa Terdaftar PIP</span>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{totalPip} Siswa</div>
+          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1 block">
             Rp {totalNominal.toLocaleString('id-ID')}
           </span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-container-low/70 border border-surface-container">
-          <span className="text-[11px] text-on-surface-variant font-medium block">SK Nominasi (Aktivasi)</span>
-          <div className="text-2xl font-bold text-amber-700 mt-1">{nominasiCount} Siswa</div>
-          <span className="text-[10.5px] text-on-surface-variant mt-0.5 block">Menunggu buku tabungan</span>
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">SK Nominasi (Aktivasi)</span>
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{nominasiCount} Siswa</div>
+          <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">Menunggu buku tabungan</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface-container-low/70 border border-surface-container">
-          <span className="text-[11px] text-on-surface-variant font-medium block">SK Pemberian (Siap Cair)</span>
-          <div className="text-2xl font-bold text-emerald-700 mt-1">{pemberianCount} Siswa</div>
-          <span className="text-[10.5px] text-emerald-700 font-semibold mt-0.5 block">Rekening aktif BNI</span>
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">SK Pemberian (Siap Cair)</span>
+          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{pemberianCount} Siswa</div>
+          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1 block">Rekening aktif BNI</span>
         </div>
       </div>
     </div>

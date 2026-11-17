@@ -47,13 +47,13 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 1: GTK */}
       <div 
         onClick={() => onCardClick?.('gtk')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">badge</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80 text-[11px] font-bold">
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-sky-950/60 text-blue-700 dark:text-sky-300 border border-blue-200/80 dark:border-sky-800/60 text-[11px] font-bold">
             {totalGtk > 0 ? 'Dapodik Aktif' : 'Belum Ada Data'}
           </span>
         </div>
@@ -66,11 +66,11 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             <span className="text-xs text-on-surface-variant font-medium">Guru &amp; Tendik</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
           <span>PNS: <b className="text-primary font-bold">{pnsCount}</b></span>
-          <span className="w-1 h-1 rounded-full bg-outline"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
           <span>PPPK: <b className="text-primary font-bold">{pppkCount}</b></span>
-          <span className="w-1 h-1 rounded-full bg-outline"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
           <span>GTY/Honor: <b className="text-primary font-bold">{honorCount}</b></span>
         </div>
       </div>
@@ -78,13 +78,13 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 2: Siswa */}
       <div 
         onClick={() => onCardClick?.('siswa')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">school</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[11px] font-bold flex items-center gap-1">
             <span className="material-symbols-outlined text-xs">verified</span>
             <span>{totalSiswa > 0 ? `${Math.round(((totalSiswa - residuCount) / totalSiswa) * 100)}% Valid` : '0 Siswa'}</span>
           </span>
@@ -98,11 +98,11 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             <span className="text-xs text-on-surface-variant font-medium">Siswa Terdaftar</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
           <span>Fase E: <b className="text-primary font-bold">{faseECount}</b></span>
-          <span className="w-1 h-1 rounded-full bg-outline"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
           <span>F-XI: <b className="text-primary font-bold">{faseF11Count}</b></span>
-          <span className="w-1 h-1 rounded-full bg-outline"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
           <span>F-XII: <b className="text-primary font-bold">{faseF12Count}</b></span>
         </div>
       </div>
@@ -110,13 +110,13 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 3: Rombel */}
       <div 
         onClick={() => onCardClick?.('rombel')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">groups</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-800 border border-violet-200 text-[11px] font-bold">
+          <span className="px-2.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60 text-[11px] font-bold">
             Semester Ganjil
           </span>
         </div>
@@ -129,7 +129,7 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             <span className="text-xs text-on-surface-variant font-medium">Kelas Aktif</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
           <span className="flex items-center gap-1">
             <span className="material-symbols-outlined text-sm text-primary">equalizer</span>
             <span>Rata-rata {avgSiswaPerRombel}/kelas</span>
@@ -141,13 +141,13 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 4: Sertifikasi Guru */}
       <div 
         onClick={() => onCardClick?.('sertifikasi')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">verified_user</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
+          <span className="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold">
             {totalGtk > 0 ? `${Math.round((sertifikasiCount / totalGtk) * 100)}% Rasio` : '0%'}
           </span>
         </div>
@@ -160,9 +160,9 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             <span className="text-xs text-on-surface-variant font-medium">Guru Pendidik</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
-          <span className="text-emerald-700 font-bold">SKTP Aktif</span>
-          <span className="w-1 h-1 rounded-full bg-outline"></span>
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
+          <span className="text-emerald-600 dark:text-emerald-400 font-bold">SKTP Aktif</span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
           <span>{totalGtk - sertifikasiCount} Non-Sergu</span>
         </div>
       </div>
@@ -170,13 +170,13 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 5: PIP */}
       <div 
         onClick={() => onCardClick?.('pip')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-md shadow-rose-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold">
+          <span className="px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 text-[11px] font-bold">
             {pipCount} Siswa
           </span>
         </div>
@@ -189,8 +189,8 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             <span className="text-xs text-on-surface-variant font-medium">Siswa Terdaftar</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
-          <span className="font-bold text-emerald-700 font-mono">Rp {pipTotalNominal.toLocaleString('id-ID')}</span>
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
+          <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">Rp {pipTotalNominal.toLocaleString('id-ID')}</span>
           <span>SimPel BNI</span>
         </div>
       </div>
@@ -198,14 +198,16 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 6: Residu Dukcapil */}
       <div 
         onClick={() => onCardClick?.('berkas')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-rose-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">folder_open</span>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-            residuCount > 0 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            residuCount > 0 
+              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60' 
+              : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
           }`}>
             {residuCount > 0 ? 'Perlu Tindak' : 'Semua Valid'}
           </span>
@@ -215,15 +217,15 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             Residu NIK / KK Siswa
           </span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className={`text-3xl font-black tracking-tight ${residuCount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+            <span className={`text-3xl font-black tracking-tight ${residuCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {residuCount}
             </span>
             <span className="text-xs text-on-surface-variant font-medium">Siswa Residu</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
           <span>{totalSiswa - residuCount} Padan Dukcapil</span>
-          <span className="w-1 h-1 rounded-full bg-outline"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
           <span>Verval PD</span>
         </div>
       </div>
@@ -231,14 +233,16 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 7: JTM Kurang */}
       <div 
         onClick={() => onCardClick?.('jtm')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-500 to-rose-700 text-white flex items-center justify-center shadow-md shadow-red-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">schedule</span>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-            jtmKritisCount > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            jtmKritisCount > 0 
+              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60' 
+              : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
           }`}>
             {jtmKritisCount > 0 ? `${jtmKritisCount} Guru Kritis` : 'Semua Terpenuhi'}
           </span>
@@ -248,14 +252,14 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             Beban Ajar &lt; 24 JTM
           </span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className={`text-3xl font-black tracking-tight ${jtmKritisCount > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+            <span className={`text-3xl font-black tracking-tight ${jtmKritisCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {jtmKritisCount}
             </span>
             <span className="text-xs text-on-surface-variant font-medium">Tenaga Pengajar</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
-          <span className="truncate text-rose-700 font-semibold">
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
+          <span className="truncate text-rose-600 dark:text-rose-400 font-semibold">
             {jtmKritisCount > 0 ? 'Butuh Ekuivalensi Kepmen 221' : '100% Beban Terpenuhi'}
           </span>
         </div>
@@ -264,13 +268,13 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
       {/* Card 8: Jurnal OPS Terisi */}
       <div 
         onClick={() => onCardClick?.('jurnal')}
-        className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container/80 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+        className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
             <span className="material-symbols-outlined text-2xl">menu_book</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold">
+          <span className="px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 text-[11px] font-bold">
             {submittedJournalsCount} Terkirim
           </span>
         </div>
@@ -283,7 +287,7 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
             <span className="text-xs text-on-surface-variant font-medium">Total Catatan</span>
           </div>
         </div>
-        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-on-surface-variant bg-surface-container-low p-2 rounded-xl border border-surface-container/60">
+        <div className="mt-4 pt-2.5 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
           <span className="truncate font-bold text-primary">Siap Cetak Format A4</span>
         </div>
       </div>

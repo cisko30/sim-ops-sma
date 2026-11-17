@@ -72,18 +72,18 @@ export const StudentDistributionCard: React.FC<StudentDistributionCardProps> = (
       ) : (
         <div className="space-y-4 pt-1">
           {/* Fase E (Kelas X) */}
-          <div className="space-y-2 p-3.5 rounded-xl bg-surface-container-low/60 border border-surface-container/60 hover:bg-surface-container-low transition-colors">
+          <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 hover:border-emerald-500/30 transition-colors">
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                <span className="font-bold text-on-surface">Fase E (Kelas X Umum)</span>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10.5px] font-semibold border border-emerald-200/60">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">Fase E (Kelas X Umum)</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10.5px] font-semibold border border-emerald-200 dark:border-emerald-800/60">
                   {rombelXCount} Rombel
                 </span>
               </div>
-              <span className="text-primary font-bold text-xs">{faseECount} Siswa ({pctE}%)</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs">{faseECount} Siswa ({pctE}%)</span>
             </div>
-            <div className="w-full h-2.5 rounded-full bg-surface-container-high/60 overflow-hidden flex">
+            <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700/80 overflow-hidden flex">
               <div 
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" 
                 style={{ width: `${Math.max(pctE, 5)}%` }}
@@ -92,38 +92,38 @@ export const StudentDistributionCard: React.FC<StudentDistributionCardProps> = (
           </div>
 
           {/* Fase F XI (Peminatan) */}
-          <div className="space-y-2 p-3.5 rounded-xl bg-surface-container-low/60 border border-surface-container/60 hover:bg-surface-container-low transition-colors">
+          <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 hover:border-sky-500/30 transition-colors">
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                <span className="font-bold text-on-surface">Fase F (Kelas XI Peminatan)</span>
-                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 text-[10.5px] font-semibold border border-blue-200/60">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">Fase F (Kelas XI Peminatan)</span>
+                <span className="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 text-[10.5px] font-semibold border border-sky-200 dark:border-sky-800/60">
                   {rombelXICount} Rombel
                 </span>
               </div>
-              <span className="text-primary font-bold text-xs">{faseF11Count} Siswa ({pctF11}%)</span>
+              <span className="text-sky-600 dark:text-sky-400 font-bold text-xs">{faseF11Count} Siswa ({pctF11}%)</span>
             </div>
-            <div className="w-full h-2.5 rounded-full bg-surface-container-high/60 overflow-hidden flex">
+            <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700/80 overflow-hidden flex">
               <div 
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-500" 
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500" 
                 style={{ width: `${Math.max(pctF11, 5)}%` }}
               />
             </div>
           </div>
 
           {/* Fase F XII (Peminatan) */}
-          <div className="space-y-2 p-3.5 rounded-xl bg-surface-container-low/60 border border-surface-container/60 hover:bg-surface-container-low transition-colors">
+          <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 hover:border-purple-500/30 transition-colors">
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                <span className="font-bold text-on-surface">Fase F (Kelas XII Peminatan)</span>
-                <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 text-[10.5px] font-semibold border border-purple-200/60">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">Fase F (Kelas XII Peminatan)</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-[10.5px] font-semibold border border-purple-200 dark:border-purple-800/60">
                   {rombelXIICount} Rombel
                 </span>
               </div>
-              <span className="text-primary font-bold text-xs">{faseF12Count} Siswa ({pctF12}%)</span>
+              <span className="text-purple-600 dark:text-purple-400 font-bold text-xs">{faseF12Count} Siswa ({pctF12}%)</span>
             </div>
-            <div className="w-full h-2.5 rounded-full bg-surface-container-high/60 overflow-hidden flex">
+            <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700/80 overflow-hidden flex">
               <div 
                 className="bg-gradient-to-r from-purple-500 to-indigo-600 h-full rounded-full transition-all duration-500" 
                 style={{ width: `${Math.max(pctF12, 5)}%` }}

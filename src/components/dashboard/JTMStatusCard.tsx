@@ -71,76 +71,76 @@ export const JTMStatusCard: React.FC<JTMStatusCardProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
           {/* Hijau: Memenuhi */}
-          <div className="p-4 rounded-xl bg-surface-container-low/70 flex flex-col justify-between border border-emerald-500/20 hover:border-emerald-500/40 transition-colors">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 flex flex-col justify-between border border-emerald-500/30 dark:border-emerald-500/30 hover:border-emerald-500/50 transition-colors">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-emerald-800 font-bold flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-emerald-600 dark:text-emerald-400">check_circle</span>
                 <span>Memenuhi (Valid)</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100/80 font-bold text-xs text-emerald-900 border border-emerald-300/60">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 font-bold text-xs text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                 {validCount} Guru
               </span>
             </div>
             <div className="space-y-1.5">
-              <div className="w-full bg-surface-container-high/60 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-200 dark:bg-slate-700/80 h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500" 
                   style={{ width: `${Math.max(validPct, 5)}%` }}
                 />
               </div>
-              <div className="flex justify-between items-center text-[11px] text-on-surface-variant">
+              <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
                 <span>≥ 24 JTM linier</span>
-                <span className="font-bold text-emerald-700">{validPct}%</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{validPct}%</span>
               </div>
             </div>
           </div>
 
           {/* Kuning: Warning / Ekuivalensi */}
-          <div className="p-4 rounded-xl bg-surface-container-low/70 flex flex-col justify-between border border-amber-500/20 hover:border-amber-500/40 transition-colors">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 flex flex-col justify-between border border-amber-500/30 dark:border-amber-500/30 hover:border-amber-500/50 transition-colors">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-amber-800 font-bold flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-base text-amber-600">warning</span>
+              <span className="text-xs text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-amber-600 dark:text-amber-400">warning</span>
                 <span>Warning JTM</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-100/80 font-bold text-xs text-amber-900 border border-amber-300/60">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 font-bold text-xs text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                 {warningCount} Guru
               </span>
             </div>
             <div className="space-y-1.5">
-              <div className="w-full bg-surface-container-high/60 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-200 dark:bg-slate-700/80 h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500" 
                   style={{ width: `${Math.max(warningPct, 5)}%` }}
                 />
               </div>
-              <div className="flex justify-between items-center text-[11px] text-on-surface-variant">
+              <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
                 <span>18 - 23 JTM</span>
-                <span className="font-bold text-amber-700">{warningPct}%</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">{warningPct}%</span>
               </div>
             </div>
           </div>
 
           {/* Merah: Kritis */}
-          <div className="p-4 rounded-xl bg-surface-container-low/70 flex flex-col justify-between border border-rose-500/20 hover:border-rose-500/40 transition-colors">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 flex flex-col justify-between border border-rose-500/30 dark:border-rose-500/30 hover:border-rose-500/50 transition-colors">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-rose-800 font-bold flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-base text-rose-600">error</span>
+              <span className="text-xs text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base text-rose-600 dark:text-rose-400">error</span>
                 <span>Kritis (&lt; 18 JTM)</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-100/80 font-bold text-xs text-rose-900 border border-rose-300/60">
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 font-bold text-xs text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
                 {criticalCount} Guru
               </span>
             </div>
             <div className="space-y-1.5">
-              <div className="w-full bg-surface-container-high/60 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-200 dark:bg-slate-700/80 h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-rose-500 to-pink-600 h-full rounded-full transition-all duration-500" 
                   style={{ width: `${Math.max(criticalPct, 5)}%` }}
                 />
               </div>
-              <div className="flex justify-between items-center text-[11px] text-on-surface-variant">
+              <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
                 <span>Kurang jam ajar</span>
-                <span className="font-bold text-rose-700">{criticalPct}%</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">{criticalPct}%</span>
               </div>
             </div>
           </div>
