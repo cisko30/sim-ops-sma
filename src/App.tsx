@@ -961,7 +961,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="lg:pl-72 flex flex-col min-h-screen transition-all">
+      <div className="lg:pl-80 flex flex-col min-h-screen transition-all">
         {/* Header */}
         <Header
           schoolInfo={schoolInfo}
