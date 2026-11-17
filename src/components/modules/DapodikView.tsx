@@ -288,6 +288,7 @@ export const DapodikView: React.FC<DapodikViewProps> = ({
               {[
                 'TKA',
                 'ABM',
+                'Belajar.id',
                 'PDSS',
                 'SNBP',
                 'Verval PD',

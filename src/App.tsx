@@ -883,7 +883,7 @@ export const App: React.FC = () => {
         return {
           section: 'Integrasi Dapodik',
           title: 'Tautan Cepat Portal Pusat Kedinasan',
-          subtitle: 'Akses SSO instan ke Manajemen Dapodik, Verval PD/PTK, Info GTK, ABM Pusmendik, dan PDSS'
+          subtitle: 'Akses SSO instan ke Akun Belajar.id, Manajemen Dapodik, Verval PD/PTK, Info GTK, ABM Pusmendik, dan PDSS'
         };
 
       // 6. Program PIP
