@@ -17,8 +17,7 @@ import { SchoolInfo, ActivityLog } from './types';
 import {
   getSupabaseConfig,
   fetchFullStateFromSupabase,
-  pushFullStateToSupabase,
-  testSupabaseConnection
+  pushFullStateToSupabase
 } from './lib/supabase';
 
 // Modals imported directly for instant, zero-delay opening

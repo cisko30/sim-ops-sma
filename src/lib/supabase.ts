@@ -45,11 +45,12 @@ export function getSupabaseConfig(): SupabaseConfig {
   }
 
   // 2. Fallback ke Vite Environment Variables jika belum diisi di LocalStorage
-  if (!url && typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) {
-    url = (import.meta.env.VITE_SUPABASE_URL as string).trim();
+  const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+  if (!url && metaEnv?.VITE_SUPABASE_URL) {
+    url = String(metaEnv.VITE_SUPABASE_URL).trim();
   }
-  if (!anonKey && typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) {
-    anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string).trim();
+  if (!anonKey && metaEnv?.VITE_SUPABASE_ANON_KEY) {
+    anonKey = String(metaEnv.VITE_SUPABASE_ANON_KEY).trim();
   }
 
   // Bersihkan trailing slash pada URL jika ada
@@ -210,7 +211,7 @@ export async function fetchFullStateFromSupabase(): Promise<{
     }
 
     // 2. Fallback: jika snapshot belum ada, ambil dari tabel granular (sekolah, gtk, siswa, dll)
-    const [sekolahRes, gtkRes, siswaRes, rombelRes, mapelRes, jurnalRes, timelineRes] = await Promise.allSettled([
+    const [_sekolahRes, gtkRes, siswaRes, rombelRes, mapelRes, jurnalRes, timelineRes] = await Promise.allSettled([
       fetch(`${cfg.url}/rest/v1/sekolah?limit=1`, { headers: getHeaders(cfg.anonKey) }).then(r => r.json()),
       fetch(`${cfg.url}/rest/v1/gtk?select=*`, { headers: getHeaders(cfg.anonKey) }).then(r => r.json()),
       fetch(`${cfg.url}/rest/v1/siswa?select=*`, { headers: getHeaders(cfg.anonKey) }).then(r => r.json()),

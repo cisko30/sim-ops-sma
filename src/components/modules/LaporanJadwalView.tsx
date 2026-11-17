@@ -35,7 +35,7 @@ export const LaporanJadwalView: React.FC<LaporanJadwalViewProps> = ({
   onImportDatabaseJson,
   onMigrateToSupabase,
   onPullFromSupabase,
-  syncEngine = 'local',
+  syncEngine: _syncEngine = 'local',
   databaseStats = { totalGtk: 0, totalSiswa: 0, totalRombel: 0, totalMapel: 0, totalJournals: 0 }
 }) => {
   const [backupStatus, setBackupStatus] = useState<string>('Tersimpan di Penyimpanan Lokal (Siap Dicadangkan)');
