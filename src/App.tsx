@@ -988,19 +988,19 @@ export const App: React.FC = () => {
             
             {/* Page Header & Action Bar (Hidden completely on Laporan Kedinasan) */}
             {currentPath !== 'laporan-dan-review-jurnal' && (
-              <div className="no-print print:hidden flex flex-col lg:flex-row lg:items-center justify-between gap-4 py-6">
+              <div className="no-print print:hidden flex flex-col lg:flex-row lg:items-center justify-between gap-2 py-3 sm:py-3.5">
                 <div className="flex flex-col min-w-0">
-                  <nav className="flex items-center gap-1.5 text-on-surface-variant text-xs mb-1.5 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md bg-surface-container-low font-semibold border border-surface-container/60">
+                  <nav className="flex items-center gap-1.5 text-on-surface-variant text-[11px] mb-1 flex-wrap">
+                    <span className="px-1.5 py-0.5 rounded bg-surface-container-low font-medium border border-surface-container/60 text-outline dark:text-slate-400">
                       {pageMeta.section}
                     </span>
-                    <span className="material-symbols-outlined text-xs text-outline">chevron_right</span>
-                    <span className="text-primary font-bold">{pageMeta.title}</span>
+                    <span className="material-symbols-outlined text-[10px] text-outline">chevron_right</span>
+                    <span className="text-primary dark:text-sky-400 font-semibold">{pageMeta.title}</span>
                   </nav>
-                  <h1 className="text-2xl sm:text-3xl text-primary tracking-tight font-black">
+                  <h1 className="text-lg sm:text-xl text-primary dark:text-sky-300 tracking-tight font-bold">
                     {pageMeta.title}
                   </h1>
-                  <p className="text-xs sm:text-sm text-on-surface-variant flex flex-wrap items-center gap-2 mt-1">
+                  <p className="text-xs text-on-surface-variant dark:text-slate-400 flex flex-wrap items-center gap-2 mt-0.5">
                     <span>{pageMeta.subtitle}</span>
                   </p>
                 </div>

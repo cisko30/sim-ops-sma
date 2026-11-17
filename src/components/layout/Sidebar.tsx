@@ -39,7 +39,6 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Jurnal Harian OPS',
     icon: 'edit_calendar',
-    badge: 'Harian',
     items: [
       { name: 'Dashboard Jurnal', path: 'dashboard-jurnal', icon: 'query_stats' },
       { name: 'Input & Riwayat Jurnal', path: 'input-dan-riwayat-jurnal', icon: 'edit_note' },
@@ -112,7 +111,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeRole = 'OPS'
 }) => {
   const school = propSchoolInfo || DEFAULT_SCHOOL_INFO;
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Store open state for each menu section
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -141,36 +139,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       [title]: !prev[title]
     }));
   };
-
-  // Toggle all sections
-  const allOpen = Object.values(openSections).every(Boolean);
-  const toggleAll = () => {
-    const nextState = !allOpen;
-    const updated: Record<string, boolean> = {};
-    NAV_SECTIONS.forEach((s) => {
-      updated[s.title] = nextState;
-    });
-    setOpenSections(updated);
-  };
-
-  // Filter sections by search query
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return NAV_SECTIONS;
-    const q = searchQuery.toLowerCase().trim();
-    return NAV_SECTIONS.map((sec) => {
-      const matchSection = sec.title.toLowerCase().includes(q);
-      const matchedItems = sec.items.filter(
-        (item) => item.name.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)
-      );
-      if (matchSection) {
-        return sec; // return all items if section matches
-      }
-      return {
-        ...sec,
-        items: matchedItems
-      };
-    }).filter((sec) => sec.items.length > 0);
-  }, [searchQuery]);
 
   // Operator initials for avatar
   const initials = useMemo(() => {
@@ -242,54 +210,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               </div>
             </div>
-
-            {/* Quick Live Search Bar */}
-            <div className="mt-3.5 relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base text-outline dark:text-slate-400 pointer-events-none">
-                search
-              </span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari modul atau menu..."
-                className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface-container-low/70 dark:bg-slate-800/80 border border-surface-container dark:border-slate-700 text-sm text-on-surface dark:text-slate-100 placeholder:text-outline/70 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:focus:ring-sky-500/30 focus:border-primary dark:focus:border-sky-500 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface p-1 rounded-full"
-                >
-                  <span className="material-symbols-outlined text-sm">close</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Section Toolbar: Navigasi + Toggle All */}
-          <div className="px-4 py-2.5 flex items-center justify-between border-b border-surface-container/50 dark:border-slate-800 bg-surface-container-lowest/50 dark:bg-slate-900 text-xs text-on-surface-variant dark:text-slate-400 font-medium">
-            <span className="uppercase tracking-wider font-bold text-outline dark:text-slate-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-primary dark:bg-sky-400"></span>
-              <span>Navigasi Modul</span>
-            </span>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="text-primary dark:text-sky-400 hover:text-primary-container font-semibold flex items-center gap-1.5 transition-colors px-2 py-1 rounded-lg hover:bg-surface-container dark:hover:bg-slate-800 text-xs"
-              title={allOpen ? 'Tutup semua submenu' : 'Buka semua submenu'}
-            >
-              <span className="material-symbols-outlined text-sm">
-                {allOpen ? 'unfold_less' : 'unfold_more'}
-              </span>
-              <span>{allOpen ? 'Ciutkan' : 'Buka Semua'}</span>
-            </button>
           </div>
 
           {/* Navigation Links Scrollable Area */}
-          <nav className="flex-1 px-3 py-2.5 space-y-1.5 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
-            {filteredSections.map((section) => {
-              const isSectionOpen = searchQuery.trim() ? true : !!openSections[section.title];
+          <nav className="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+            {NAV_SECTIONS.map((section) => {
+              const isSectionOpen = !!openSections[section.title];
               const hasActiveChild = section.items.some((item) => item.path === currentPath);
 
               return (
@@ -397,13 +323,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               );
             })}
-
-            {filteredSections.length === 0 && (
-              <div className="p-4 text-center text-sm text-outline">
-                <span className="material-symbols-outlined text-2xl block mb-1">manage_search</span>
-                Tidak ada menu &ldquo;{searchQuery}&rdquo;
-              </div>
-            )}
           </nav>
         </div>
 
@@ -428,7 +347,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {school.operatorName}
                 </span>
                 <span className="text-xs text-on-surface-variant dark:text-slate-400 truncate mt-0.5">
-                  {school.operatorRole || 'Operator Sekolah'} ({activeRole})
+                  {school.operatorRole || 'Koordinator Operator Sekolah'}
                 </span>
               </div>
             </div>
