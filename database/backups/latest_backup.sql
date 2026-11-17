@@ -3,7 +3,7 @@
 -- Sekolah   : SMA NU Kaplongan (NPSN: 20216007, Akreditasi: A)
 -- Kepsek    : Drs. H. Toufik Zaenal Mustofa, M.Pd.I
 -- Operator  : Bagas Pratama, S.Kom (NIP/NUPTK: 199104152020121008)
--- Waktu     : 17 November 2026, 11:10:06 WIB
+-- Waktu     : 17 November 2026, 13:16:53 WIB
 -- Engine    : Supabase Cloud PostgreSQL (Project: qyiurmxyoqbyfounrttq)
 -- ============================================================================
 
