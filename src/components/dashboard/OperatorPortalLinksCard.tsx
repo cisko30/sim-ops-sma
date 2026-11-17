@@ -85,6 +85,23 @@ export const OperatorPortalLinksCard: React.FC<OperatorPortalLinksCardProps> = (
       }
     },
     {
+      id: 'belajar-id',
+      name: 'Portal Akun Belajar.id (SSO Kemendikdasmen)',
+      shortName: 'Akun Belajar.id',
+      category: 'Pusdatin',
+      badge: 'SSO Belajar.id',
+      description: 'Single Sign-On (SSO) Akun Pembelajaran resmi Kemendikdasmen untuk akses PMM, Google Workspace for Education, Chromebook, dan kedinasan.',
+      url: 'https://akun.belajar.id/sso/login?flow=bfe6b11e-913a-4e5c-a115-a9e74b5ab21b',
+      icon: 'vpn_key',
+      tags: ['belajar.id', 'akun pembelajaran', 'sso', 'pmm', 'google', 'guru', 'siswa'],
+      themeColor: {
+        bg: 'bg-sky-50/70 hover:bg-sky-50',
+        text: 'text-sky-900',
+        border: 'border-sky-200',
+        iconBg: 'bg-sky-600 text-white'
+      }
+    },
+    {
       id: 'verval-pd',
       name: 'Verval PD (Peserta Didik & Dukcapil)',
       shortName: 'Verval PD',

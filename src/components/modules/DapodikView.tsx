@@ -502,7 +502,7 @@ export const DapodikView: React.FC<DapodikViewProps> = ({
                 }}
                 className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-container"
               >
-                Tampilkan Semua 18 Portal
+                Tampilkan Semua {QUICK_LINKS_LIST.length} Portal
               </button>
             </div>
           )}

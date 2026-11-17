@@ -544,6 +544,20 @@ export const QUICK_LINKS_LIST: QuickLinkItem[] = [
     accentBorder: 'hover:border-blue-500 group-hover:shadow-blue-600/10'
   },
   {
+    id: 'ql-belajar-id',
+    nama: 'Portal Akun Belajar.id (SSO Kemendikdasmen)',
+    singkatan: 'Akun Belajar.id',
+    kategori: 'Pusdatin & Dapodik',
+    url: 'https://akun.belajar.id/sso/login?flow=bfe6b11e-913a-4e5c-a115-a9e74b5ab21b',
+    deskripsi: 'Portal Single Sign-On (SSO) Akun Pembelajaran resmi Kemendikdasmen untuk PTK, GTK, dan siswa guna mengakses Platform Merdeka Mengajar (PMM), Google Workspace for Education, dan Chromebook.',
+    icon: 'vpn_key',
+    badge: 'SSO Belajar.id',
+    tags: ['Belajar.id', 'Akun Pembelajaran', 'SSO', 'PMM', 'Google Workspace', 'GTK', 'Siswa'],
+    iconBg: 'bg-gradient-to-br from-sky-500 to-blue-700 text-white shadow-md shadow-sky-500/25',
+    badgeColor: 'bg-sky-50 text-sky-700 border-sky-200/80',
+    accentBorder: 'hover:border-sky-400 group-hover:shadow-sky-500/10'
+  },
+  {
     id: 'ql-verval-pd',
     nama: 'Verval PD (Peserta Didik & Dukcapil)',
     singkatan: 'Verval PD',
