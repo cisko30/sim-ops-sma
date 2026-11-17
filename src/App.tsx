@@ -490,9 +490,6 @@ export const App: React.FC = () => {
       }
     };
   }, [gtkList, siswaList, rombelList, mapelList, journals, activities, schoolInfo]);
-      }
-    };
-  }, [gtkList, siswaList, rombelList, mapelList, journals, activities, schoolInfo]);
 
   // Modals state
   const [jurnalModalOpen, setJurnalModalOpen] = useState(false);
