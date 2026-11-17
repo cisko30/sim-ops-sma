@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
   schoolInfo: propSchoolInfo,
-  activeRole = 'OPS'
+  activeRole: _activeRole = 'OPS'
 }) => {
   const school = propSchoolInfo || DEFAULT_SCHOOL_INFO;
 
@@ -160,60 +160,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed left-0 top-0 h-screen w-80 bg-surface-container-lowest border-r border-surface-container/70 shadow-sm z-50 flex flex-col justify-between transition-transform duration-300 ease-out ${
+        className={`fixed left-0 top-0 h-screen w-72 bg-white dark:bg-[#0c1322] border-r border-slate-200/80 dark:border-slate-800/80 shadow-md dark:shadow-2xl dark:shadow-black/30 z-50 flex flex-col justify-between transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Top Section: Brand + Search + Menu */}
+        {/* Top Section: Brand + Menu */}
         <div className="flex flex-col min-h-0 flex-1">
           {/* Brand Header */}
-          <div className="p-4 bg-surface-container-low/50 dark:bg-slate-900 border-b border-surface-container/60 dark:border-slate-800">
+          <div className="p-3.5 bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800/80">
             <div className="flex items-center gap-3">
-              {/* Logo container with subtle glow */}
+              {/* Logo container with pulse indicator */}
               <div className="relative shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 p-1.5 shadow-sm border border-surface-container dark:border-slate-700 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 p-1 shadow-xs border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center">
                   <img
                     src="/logo-sma-nu.png?v=3"
                     alt="Logo SMA NU Kaplongan"
                     className="w-full h-full object-contain"
                     onError={(e) => {
-                      // Fallback if image fails
                       (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
-                  <span className="material-symbols-outlined text-primary dark:text-sky-400 text-2xl hidden fallback-icon">
+                  <span className="material-symbols-outlined text-sky-500 text-xl hidden fallback-icon">
                     account_balance
                   </span>
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 flex items-center justify-center" title="Server Aktif">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 flex items-center justify-center" title="Server Aktif">
+                  <span className="w-1 h-1 rounded-full bg-white animate-pulse"></span>
                 </div>
               </div>
 
               {/* Identity text */}
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-base text-primary dark:text-sky-400 tracking-tight truncate">
+                  <span className="font-extrabold text-[15px] text-slate-800 dark:text-sky-400 tracking-tight truncate">
                     SIM-OPS SMA
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 dark:bg-sky-500/20 text-primary dark:text-sky-300 text-[11px] font-extrabold uppercase">
+                  <span className="px-1.5 py-0.2 rounded-full bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-300 text-[10px] font-bold uppercase tracking-wider">
                     v2.5
                   </span>
                 </div>
-                <span className="font-semibold text-sm text-on-surface dark:text-slate-100 truncate mt-0.5">
+                <span className="font-semibold text-xs text-slate-700 dark:text-slate-200 truncate mt-0.5">
                   {school.schoolName}
                 </span>
-                <span className="text-xs text-on-surface-variant dark:text-slate-400 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center gap-1.5 mt-0.5">
                   <span>NPSN {school.npsn}</span>
-                  <span className="text-outline dark:text-slate-500">•</span>
-                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">Akred. {school.accreditation}</span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Akred. {school.accreditation}</span>
                 </span>
               </div>
             </div>
           </div>
 
           {/* Navigation Links Scrollable Area */}
-          <nav className="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+          <nav className="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/80 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
             {NAV_SECTIONS.map((section) => {
               const isSectionOpen = !!openSections[section.title];
               const hasActiveChild = section.items.some((item) => item.path === currentPath);
@@ -224,42 +223,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleSection(section.title)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer group select-none ${
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left transition-all cursor-pointer group select-none ${
                       hasActiveChild
-                        ? 'bg-primary/10 text-primary font-bold'
-                        : 'text-on-surface hover:text-primary hover:bg-surface-container-low/80'
+                        ? 'bg-sky-500/10 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 font-semibold'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-slate-800/60'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
                           hasActiveChild
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'bg-surface-container-low text-on-surface-variant group-hover:bg-primary/10 group-hover:text-primary'
+                            ? 'bg-sky-500/15 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400'
+                            : 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 group-hover:bg-slate-200 dark:group-hover:bg-slate-700/70 group-hover:text-slate-800 dark:group-hover:text-slate-200'
                         }`}
                       >
-                        <span className="material-symbols-outlined text-lg">
+                        <span className="material-symbols-outlined text-[18px]">
                           {section.icon}
                         </span>
                       </div>
-                      <span className="text-sm tracking-normal font-semibold truncate">
+                      <span className="text-[13px] tracking-tight truncate">
                         {section.title}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {section.badge && (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
                           {section.badge}
                         </span>
                       )}
 
                       {/* Count badge */}
                       <span
-                        className={`text-xs min-w-5 text-center px-2 py-0.5 rounded-full font-bold transition-colors ${
+                        className={`text-[10px] min-w-4 text-center px-1.5 py-0.2 rounded-full font-bold transition-colors ${
                           hasActiveChild
-                            ? 'bg-primary/15 text-primary'
-                            : 'bg-surface-container-low text-outline group-hover:text-on-surface'
+                            ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                            : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'
                         }`}
                       >
                         {section.items.length}
@@ -267,8 +266,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       {/* Chevron Indicator */}
                       <span
-                        className={`material-symbols-outlined text-base transition-transform duration-200 ${
-                          isSectionOpen ? 'rotate-180 text-primary' : 'text-outline/70 group-hover:text-on-surface'
+                        className={`material-symbols-outlined text-sm transition-transform duration-200 ${
+                          isSectionOpen
+                            ? hasActiveChild
+                              ? 'rotate-180 text-sky-600 dark:text-sky-400'
+                              : 'rotate-180 text-slate-500 dark:text-slate-400'
+                            : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'
                         }`}
                       >
                         expand_more
@@ -282,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       isSectionOpen ? 'max-h-96 opacity-100 mt-1 mb-1.5' : 'max-h-0 opacity-0'
                     }`}
                   >
-                    <div className="ml-6 pl-3 space-y-1 border-l-2 border-surface-container">
+                    <div className="ml-5 pl-2.5 space-y-0.5 border-l border-slate-200/80 dark:border-slate-800/80">
                       {section.items.map((item) => {
                         const isActive = currentPath === item.path;
                         return (
@@ -293,27 +296,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               onSelectPath(item.path);
                               if (window.innerWidth < 1024) onClose();
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-left group/item ${
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-left group/item ${
                               isActive
-                                ? 'bg-primary text-white font-semibold shadow-xs'
-                                : 'text-on-surface-variant hover:bg-surface-container hover:text-primary'
+                                ? 'bg-sky-600 text-white font-medium shadow-xs shadow-sky-600/20 dark:bg-sky-500/20 dark:text-sky-300 dark:border dark:border-sky-500/30'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
                               <span
-                                className={`material-symbols-outlined text-base shrink-0 transition-transform group-hover/item:scale-110 ${
-                                  isActive ? 'text-white' : 'text-outline group-hover/item:text-primary'
+                                className={`material-symbols-outlined text-[17px] shrink-0 transition-transform group-hover/item:scale-105 ${
+                                  isActive
+                                    ? 'text-white dark:text-sky-300'
+                                    : 'text-slate-400 dark:text-slate-500 group-hover/item:text-slate-600 dark:group-hover/item:text-slate-300'
                                 }`}
                               >
                                 {item.icon}
                               </span>
-                              <span className="truncate text-sm leading-normal font-medium">
+                              <span className="truncate text-xs font-medium">
                                 {item.name}
                               </span>
                             </div>
 
                             {item.indicator && (
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-200 animate-pulse shrink-0"></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/30 animate-pulse shrink-0"></span>
                             )}
                           </button>
                         );
@@ -327,7 +332,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Section: Operator Card + Server Status */}
-        <div className="p-3.5 bg-surface-container-low/70 dark:bg-slate-900 border-t border-surface-container dark:border-slate-800 space-y-2.5">
+        <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 border-t border-slate-200/80 dark:border-slate-800/80 space-y-2">
           {/* Operator Profile Pill */}
           <button
             type="button"
@@ -335,34 +340,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onSelectPath('profil-sekolah');
               if (window.innerWidth < 1024) onClose();
             }}
-            className="w-full p-2.5 rounded-xl bg-surface-container-lowest dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700/80 border border-surface-container dark:border-slate-700 shadow-xs flex items-center justify-between gap-3 transition-all text-left group"
+            className="w-full p-2 rounded-xl bg-white dark:bg-slate-800/70 hover:bg-slate-100/90 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-xs flex items-center justify-between gap-2.5 transition-all text-left group"
             title="Buka Pengaturan Profil Sekolah"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 dark:bg-sky-500/20 text-primary dark:text-sky-300 font-bold text-sm flex items-center justify-center shrink-0 border border-primary/20 dark:border-sky-500/30 group-hover:bg-primary group-hover:text-white transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/15 dark:bg-sky-500/20 text-sky-600 dark:text-sky-300 font-bold text-xs flex items-center justify-center shrink-0 border border-sky-500/30 group-hover:bg-sky-500 group-hover:text-white transition-colors">
                 {initials}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-bold text-sm text-on-surface dark:text-slate-100 truncate group-hover:text-primary dark:group-hover:text-sky-400 transition-colors">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                   {school.operatorName}
                 </span>
-                <span className="text-xs text-on-surface-variant dark:text-slate-400 truncate mt-0.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                   {school.operatorRole || 'Koordinator Operator Sekolah'}
                 </span>
               </div>
             </div>
-            <span className="material-symbols-outlined text-lg text-outline dark:text-slate-400 group-hover:text-primary dark:group-hover:text-sky-400 transition-transform group-hover:translate-x-0.5">
+            <span className="material-symbols-outlined text-base text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-transform group-hover:translate-x-0.5">
               chevron_right
             </span>
           </button>
 
           {/* Dapodik Server Health Pill */}
-          <div className="px-3.5 py-2.5 rounded-xl bg-surface-container-lowest dark:bg-slate-800 border border-surface-container dark:border-slate-700 flex items-center justify-between text-xs">
+          <div className="px-3 py-1.5 rounded-lg bg-white/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-              <span className="font-bold text-slate-800 dark:text-slate-200 truncate">Dapodikdasmen v2025.b</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px] truncate">Dapodikdasmen v2025.b</span>
             </div>
-            <span className="text-emerald-700 dark:text-emerald-400 font-bold shrink-0 text-xs">Terhubung</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0 text-[11px]">Terhubung</span>
           </div>
         </div>
       </aside>
