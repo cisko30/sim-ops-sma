@@ -84,6 +84,15 @@ const NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
+    title: 'Keuangan & Bendahara',
+    icon: 'payments',
+    items: [
+      { name: 'Cek Tunggakan & SPP Siswa', path: 'tunggakan-dan-spp', icon: 'account_balance_wallet', indicator: true },
+      { name: 'Riwayat Kwitansi & Bayar', path: 'riwayat-kwitansi-bayar', icon: 'receipt_long' },
+      { name: 'Rekap & Surat Tunggakan', path: 'rekap-surat-tunggakan', icon: 'summarize' },
+    ]
+  },
+  {
     title: 'E-Arsip & Generator',
     icon: 'folder_shared',
     items: [

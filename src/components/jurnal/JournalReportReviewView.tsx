@@ -7,7 +7,7 @@ import { SchoolInfo } from '../../types';
 interface JournalReportReviewViewProps {
   journals?: DailyJournal[];
   schoolInfo?: SchoolInfo;
-  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek';
+  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara';
   onNavigateToProfile?: () => void;
   onShowToast: (msg: string) => void;
 }

@@ -42,6 +42,7 @@ import { ArsipGeneratorView } from './components/modules/ArsipGeneratorView';
 import { LaporanJadwalView } from './components/modules/LaporanJadwalView';
 import { AktivitasTerbaruView } from './components/modules/AktivitasTerbaruView';
 import { OperatorSkillsView } from './components/modules/OperatorSkillsView';
+import { BendaharaKeuanganView } from './components/modules/BendaharaKeuanganView';
 
 export const App: React.FC = () => {
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -221,7 +222,7 @@ export const App: React.FC = () => {
   }, [activities]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeRole, setActiveRole] = useState<'OPS' | 'Kurikulum' | 'Kepsek'>('OPS');
+  const [activeRole, setActiveRole] = useState<'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara'>('OPS');
   
   // Cloud Sync state (Supabase PostgreSQL Cloud + Cloudflare Pages KV Fallback)
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
@@ -898,6 +899,26 @@ export const App: React.FC = () => {
           subtitle: 'Pembuatan surat kuasa kolektif pencairan dana PIP ke Bank BNI format dinas resmi'
         };
 
+      // Keuangan & Bendahara
+      case 'tunggakan-dan-spp':
+        return {
+          section: 'Keuangan & Bendahara',
+          title: 'Cek Tunggakan & Pembayaran SPP Siswa',
+          subtitle: 'Monitoring piutang SPP, DSP gedung, praktikum siswa, dan integrasi pencairan bantuan PIP'
+        };
+      case 'riwayat-kwitansi-bayar':
+        return {
+          section: 'Keuangan & Bendahara',
+          title: 'Arsip Kwitansi & Riwayat Transaksi Kasir',
+          subtitle: 'Daftar bukti pembayaran sah, cetak kwitansi resmi A4, dan verifikasi dana masuk'
+        };
+      case 'rekap-surat-tunggakan':
+        return {
+          section: 'Keuangan & Bendahara',
+          title: 'Rekapitulasi Tunggakan & Surat Tagihan Kedinasan',
+          subtitle: 'Laporan kepatuhan bayar per rombel, rekapitulasi komite, dan generator surat resmi ke wali murid'
+        };
+
       // 7. E-Arsip & Generator
       case 'e-arsip-digital-dokumen':
         return {
@@ -1081,6 +1102,54 @@ export const App: React.FC = () => {
                 >
                   <span className="material-symbols-outlined text-base">summarize</span>
                   <span>Laporan &amp; Review Jurnal</span>
+                </button>
+              </div>
+            )}
+
+            {/* KEUANGAN & BENDAHARA: UNIFIED SUB-NAV TABS */}
+            {[
+              'tunggakan-dan-spp',
+              'riwayat-kwitansi-bayar',
+              'rekap-surat-tunggakan'
+            ].includes(currentPath) && (
+              <div className="no-print print:hidden mb-4 flex items-center gap-1.5 p-1 rounded-2xl bg-surface-container-lowest border border-surface-container shadow-sm overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPath('tunggakan-dan-spp')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                    currentPath === 'tunggakan-dan-spp'
+                      ? 'bg-primary text-white shadow-md'
+                      : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-low'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">account_balance_wallet</span>
+                  <span>Tunggakan &amp; SPP Siswa</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPath('riwayat-kwitansi-bayar')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                    currentPath === 'riwayat-kwitansi-bayar'
+                      ? 'bg-primary text-white shadow-md'
+                      : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-low'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">receipt_long</span>
+                  <span>Riwayat Kwitansi</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPath('rekap-surat-tunggakan')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                    currentPath === 'rekap-surat-tunggakan'
+                      ? 'bg-primary text-white shadow-md'
+                      : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-low'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">summarize</span>
+                  <span>Rekap &amp; Surat Tunggakan</span>
                 </button>
               </div>
             )}
@@ -1321,6 +1390,31 @@ export const App: React.FC = () => {
                   totalRombel: rombelList.length,
                   totalMapel: mapelList.length,
                   totalJournals: journals.length
+                }}
+              />
+            )}
+
+            {/* 8. Keuangan & Bendahara Views */}
+            {[
+              'tunggakan-dan-spp',
+              'riwayat-kwitansi-bayar',
+              'rekap-surat-tunggakan'
+            ].includes(currentPath) && (
+              <BendaharaKeuanganView
+                subType={currentPath as any}
+                schoolInfo={schoolInfo}
+                siswaList={siswaList}
+                onShowToast={showToast}
+                onNavigateToSiswa={() => setCurrentPath('data-peserta-didik')}
+                onAddActivity={(title, desc) => {
+                  const newAct: ActivityLog = {
+                    id: `act-${Date.now()}`,
+                    title,
+                    time: 'Baru saja',
+                    description: desc,
+                    dotColor: 'bg-emerald-500'
+                  };
+                  setActivities((prev) => [newAct, ...prev]);
                 }}
               />
             )}

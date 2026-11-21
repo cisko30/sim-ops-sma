@@ -57,8 +57,8 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   onOpenJurnalModal?: () => void;
   schoolInfo?: SchoolInfo;
-  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek';
-  onChangeRole?: (role: 'OPS' | 'Kurikulum' | 'Kepsek') => void;
+  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara';
+  onChangeRole?: (role: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara') => void;
   onSearch?: (query: string) => void;
   onNavigate?: (path: string) => void;
   onOpenResiduModal?: () => void;
@@ -73,6 +73,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   schoolInfo: propSchoolInfo,
+  activeRole = 'OPS',
+  onChangeRole,
   onNavigate,
   onOpenResiduModal,
   onOpenSyncModal,
@@ -231,6 +233,32 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Notifications, dark mode, profile */}
       <div className="flex items-center gap-2 lg:gap-space-md">
+        {/* Role Switcher Pill */}
+        {onChangeRole && (
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-low dark:bg-slate-800 border border-surface-container dark:border-slate-700 text-xs">
+            <span className="material-symbols-outlined text-sm text-primary dark:text-sky-400">
+              {activeRole === 'Bendahara' ? 'payments' : activeRole === 'Kepsek' ? 'shield_person' : activeRole === 'Kurikulum' ? 'menu_book' : 'badge'}
+            </span>
+            <select
+              value={activeRole}
+              onChange={(e) => {
+                const nextRole = e.target.value as any;
+                onChangeRole(nextRole);
+                if (nextRole === 'Bendahara') {
+                  onNavigate?.('tunggakan-dan-spp');
+                }
+              }}
+              className="bg-transparent text-xs font-bold text-on-surface dark:text-slate-200 cursor-pointer focus:outline-none pr-1"
+              title="Ganti Peran Pengguna Aktif"
+            >
+              <option value="OPS" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">OPS: Operator</option>
+              <option value="Bendahara" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Bendahara Sekolah</option>
+              <option value="Kurikulum" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Kurikulum</option>
+              <option value="Kepsek" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Kepala Sekolah</option>
+            </select>
+          </div>
+        )}
+
         {/* Cloud Sync Status Indicator */}
         <button
           type="button"
@@ -437,7 +465,7 @@ export const Header: React.FC<HeaderProps> = ({
               {school.operatorName}
             </span>
             <span className="font-label-sm text-[11px] text-on-surface-variant dark:text-slate-400 leading-tight">
-              {school.operatorRole}
+              {activeRole === 'Bendahara' ? 'Bendahara Sekolah' : activeRole === 'Kepsek' ? 'Kepala Sekolah' : activeRole === 'Kurikulum' ? 'Wakasek Kurikulum' : (school.operatorRole || 'Koordinator Operator Sekolah')}
             </span>
           </div>
         </div>
