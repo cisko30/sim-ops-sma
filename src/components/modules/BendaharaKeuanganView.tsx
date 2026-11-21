@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { SiswaItem } from '../../data/modulesData';
+import { SiswaItem, RombelItem } from '../../data/modulesData';
 import { SchoolInfo } from '../../types';
-import { PembayaranItem, TransaksiKwitansi } from '../../types/finance';
+import { PembayaranItem, TransaksiKwitansi, KategoriPosKeuangan } from '../../types/finance';
 
 interface BendaharaKeuanganViewProps {
   subType: 'tunggakan-dan-spp' | 'riwayat-kwitansi-bayar' | 'rekap-surat-tunggakan';
   schoolInfo?: SchoolInfo;
   siswaList?: SiswaItem[];
+  rombelList?: RombelItem[];
   transaksiList?: TransaksiKwitansi[];
   paymentOverrides?: Record<string, Partial<PembayaranItem>>;
   onUpdateTransaksi?: (items: TransaksiKwitansi[]) => void;
@@ -18,9 +19,25 @@ interface BendaharaKeuanganViewProps {
   onShowToast: (msg: string) => void;
   onNavigateToSiswa?: () => void;
   onAddActivity?: (title: string, desc: string) => void;
+  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara' | 'Wali Kelas';
 }
 
 const BULAN_SEMESTER_GANJIL = ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+const SIKLUS_2_MINGGUAN = [
+  { id: 'siklus-1', label: 'Siklus 1 (1 - 14 Juli 2026)', status: 'Selesai' },
+  { id: 'siklus-2', label: 'Siklus 2 (15 - 31 Juli 2026)', status: 'Selesai' },
+  { id: 'siklus-3', label: 'Siklus 3 (1 - 14 Agustus 2026)', status: 'Selesai' },
+  { id: 'siklus-4', label: 'Siklus 4 (15 - 31 Agustus 2026)', status: 'Selesai' },
+  { id: 'siklus-5', label: 'Siklus 5 (1 - 14 September 2026)', status: 'Selesai' },
+  { id: 'siklus-6', label: 'Siklus 6 (15 - 30 September 2026)', status: 'Selesai' },
+  { id: 'siklus-7', label: 'Siklus 7 (1 - 14 Oktober 2026)', status: 'Selesai' },
+  { id: 'siklus-8', label: 'Siklus 8 (15 - 31 Oktober 2026)', status: 'Selesai' },
+  { id: 'siklus-9', label: 'Siklus 9 (1 - 14 November 2026)', status: 'Selesai' },
+  { id: 'siklus-10', label: 'Siklus 10 (15 - 30 November 2026)', status: 'Jadwal Aktif' },
+  { id: 'siklus-11', label: 'Siklus 11 (1 - 14 Desember 2026)', status: 'Mendatang' },
+  { id: 'siklus-12', label: 'Siklus 12 (15 - 31 Desember 2026)', status: 'Mendatang' }
+];
 
 // Helper to convert number to Indonesian words (Terbilang)
 function terbilang(n: number): string {
@@ -40,6 +57,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
   subType,
   schoolInfo,
   siswaList = [],
+  rombelList = [],
   transaksiList: propTransaksiList,
   paymentOverrides: propPaymentOverrides,
   onUpdateTransaksi,
@@ -50,8 +68,11 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
   onManualSync,
   onShowToast,
   onNavigateToSiswa,
-  onAddActivity
+  onAddActivity,
+  activeRole = 'OPS'
 }) => {
+  const isWaliKelas = activeRole === 'Wali Kelas';
+
   // Stored state for payments and transactions (with prop fallback)
   const [localTransaksiList, setLocalTransaksiList] = useState<TransaksiKwitansi[]>(() => {
     try {
@@ -104,37 +125,124 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     }
   };
 
-  // Generate dynamic student payment records connected to operator's master siswaList
+  // Helper map from rombelList to resolve designated Wali Kelas name
+  const rombelWaliMap = useMemo(() => {
+    const map = new Map<string, string>();
+    rombelList.forEach(r => {
+      map.set(r.namaRombel, r.waliKelas);
+      const cleanName = r.namaRombel.replace(/\s+/g, '-').replace('(', '').replace(')', '');
+      map.set(cleanName, r.waliKelas);
+    });
+    return map;
+  }, [rombelList]);
+
+  // View presentation mode: 'ledger' (matching school Excel sheet) or 'compact' (financial overview)
+  const [viewMode, setViewMode] = useState<'ledger' | 'compact'>('ledger');
+  // Ledger period header (e.g. "SAMPAI AGUSTUS 2026")
+  const [ledgerPeriode, setLedgerPeriode] = useState<string>('SAMPAI AGUSTUS 2026');
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRombel, setSelectedRombel] = useState<string>('X-1');
+  const [selectedStatus, setSelectedStatus] = useState('Semua');
+  const [filterPipOnly, setFilterPipOnly] = useState(false);
+
+  // Available Rombels from siswaList and rombelList
+  const rombelOptions = useMemo(() => {
+    const set = new Set<string>();
+    siswaList.forEach(s => {
+      if (s.rombel) set.add(s.rombel);
+    });
+    rombelList.forEach(r => {
+      if (r.namaRombel) set.add(r.namaRombel);
+    });
+    // Default fallback rombels if list is clean
+    if (set.size === 0) {
+      ['X-1', 'X-2', 'XI-1', 'XI-2', 'XII-1', 'XII-2'].forEach(r => set.add(r));
+    }
+    return Array.from(set).sort();
+  }, [siswaList, rombelList]);
+
+  // Resolved Wali Kelas for the currently selected Rombel
+  const activeWaliKelasName = useMemo(() => {
+    if (selectedRombel === 'Semua') return 'Semua Wali Kelas';
+    // 1. From rombelWaliMap
+    if (rombelWaliMap.has(selectedRombel)) {
+      return rombelWaliMap.get(selectedRombel)!;
+    }
+    // 2. From first matching student
+    const matchedSiswa = siswaList.find(s => s.rombel === selectedRombel && s.waliKelas);
+    if (matchedSiswa?.waliKelas) return matchedSiswa.waliKelas;
+
+    // 3. Defaults based on school standards
+    if (selectedRombel.includes('X-1') || selectedRombel.includes('X 1')) return 'ABDUL AZIZ MUSTOFA';
+    if (selectedRombel.includes('X-2') || selectedRombel.includes('X 2')) return 'Dewi Sartika, S.Pd';
+    if (selectedRombel.includes('XI-1') || selectedRombel.includes('XI 1')) return 'Ahmad Fauzi, S.Pd';
+    if (selectedRombel.includes('XI-2') || selectedRombel.includes('XI 2')) return 'Moh. Ridwan, M.Pd';
+    if (selectedRombel.includes('XII-1') || selectedRombel.includes('XII 1')) return 'H. Abdul Ghofur, S.Ag';
+    if (selectedRombel.includes('XII-2') || selectedRombel.includes('XII 2')) return 'Ika Wardani, S.Kom';
+    return 'Wali Kelas SMA NU Kaplongan';
+  }, [selectedRombel, rombelWaliMap, siswaList]);
+
+  // Generate dynamic student payment records with the 7 user requested columns
   const pembayaranList: PembayaranItem[] = useMemo(() => {
-    return siswaList.map((siswa, idx) => {
+    return siswaList.map((siswa) => {
       const override = paymentOverrides[siswa.id] || {};
-      
-      // Standard billing rates for SMA NU Kaplongan
+
+      // 1. Wali Kelas name
+      const resolvedWali = override.waliKelas || siswa.waliKelas || rombelWaliMap.get(siswa.rombel) || (siswa.rombel.includes('X-1') || siswa.rombel.includes('X 1') ? 'ABDUL AZIZ MUSTOFA' : 'Wali Kelas');
+
+      // 2. Tunggakan Tahun Lalu
+      const defaultTagihanTahunLalu = siswa.rombel.includes('XI') ? 350000 : siswa.rombel.includes('XII') ? 500000 : 0;
+      const tagihanTahunLalu = override.tagihanTahunLalu !== undefined ? override.tagihanTahunLalu : defaultTagihanTahunLalu;
+
+      // 3. Daftar Ulang
+      const defaultDaftarUlang = 450000;
+      const tagihanDaftarUlang = override.tagihanDaftarUlang !== undefined ? override.tagihanDaftarUlang : defaultDaftarUlang;
+
+      // 4. Syariah / SPP Bulanan (Juli - Desember = 6 Bulan)
       const sppPerBulan = override.sppBulanan !== undefined ? override.sppBulanan : 150000;
-      const tagihanDSP = override.tagihanDSP !== undefined ? override.tagihanDSP : (siswa.rombel.includes('X-') ? 1200000 : 0);
-      const terbayarDSP = override.terbayarDSP !== undefined ? override.terbayarDSP : 0;
-      const tagihanUjian = override.tagihanUjian !== undefined ? override.tagihanUjian : 350000;
-      const terbayarUjian = override.terbayarUjian !== undefined ? override.terbayarUjian : 0;
+      const totalMonths = 6;
+      const totalTagihanSyahriyah = totalMonths * sppPerBulan;
+
+      // 5. Tunggakan Lain-lain
+      const defaultLainLain = 200000;
+      const tagihanLainLain = override.tagihanLainLain !== undefined ? override.tagihanLainLain : defaultLainLain;
 
       // Compute payments made from transaction log
-      const studentTx = transaksiList.filter(t => t.siswaId === siswa.id);
-      const paidSppTx = studentTx.filter(t => t.kategori === 'SPP Bulanan').reduce((acc, t) => acc + t.jumlah, 0);
-      const paidDspTx = studentTx.filter(t => t.kategori === 'DSP / Uang Gedung').reduce((acc, t) => acc + t.jumlah, 0);
-      const paidUjianTx = studentTx.filter(t => t.kategori === 'Praktik & Ujian').reduce((acc, t) => acc + t.jumlah, 0);
+      const studentTx = transaksiList.filter(t => t.siswaId === siswa.id || (t.nisn && t.nisn === siswa.nisn));
 
-      const totalPaidDSP = terbayarDSP + paidDspTx;
-      const totalPaidUjian = terbayarUjian + paidUjianTx;
+      // Payments per category
+      const paidTahunLalu = studentTx
+        .filter(t => t.kategori === 'Tunggakan Tahun Lalu')
+        .reduce((acc, t) => acc + t.jumlah, 0) + (override.terbayarTahunLalu || 0);
 
-      // Months calculation: default 6 months in semester ganjil
-      const monthsTotal = 6;
-      const monthsPaidCount = Math.min(monthsTotal, Math.floor(paidSppTx / sppPerBulan));
+      const paidDaftarUlang = studentTx
+        .filter(t => t.kategori === 'Daftar Ulang' || t.kategori === 'DSP / Uang Gedung')
+        .reduce((acc, t) => acc + t.jumlah, 0) + (override.terbayarDaftarUlang || 0);
+
+      const paidSyahriyah = studentTx
+        .filter(t => t.kategori === 'Syahriyah / SPP Bulanan' || t.kategori === 'SPP Bulanan')
+        .reduce((acc, t) => acc + t.jumlah, 0) + (override.terbayarSyahriyah || 0);
+
+      const paidLainLain = studentTx
+        .filter(t => t.kategori === 'Tunggakan Lain-lain' || t.kategori === 'Praktik & Ujian' || t.kategori === 'Seragam & Buku' || t.kategori === 'Lainnya')
+        .reduce((acc, t) => acc + t.jumlah, 0) + (override.terbayarLainLain || 0);
+
+      // Remaining arrears per category
+      const sisaTahunLalu = Math.max(0, tagihanTahunLalu - paidTahunLalu);
+      const sisaDaftarUlang = Math.max(0, tagihanDaftarUlang - paidDaftarUlang);
+      const sisaSyahriyah = Math.max(0, totalTagihanSyahriyah - paidSyahriyah);
+      const sisaLainLain = Math.max(0, tagihanLainLain - paidLainLain);
+
+      // Month breakdown
+      const monthsPaidCount = Math.min(totalMonths, Math.floor(paidSyahriyah / sppPerBulan));
       const bulanMenunggak = BULAN_SEMESTER_GANJIL.slice(monthsPaidCount);
-      const totalTagihanSPP = monthsTotal * sppPerBulan;
-      const totalPaidSPP = monthsPaidCount * sppPerBulan;
 
-      const totalTagihan = totalTagihanSPP + tagihanDSP + tagihanUjian;
-      const totalTerbayar = totalPaidSPP + totalPaidDSP + totalPaidUjian;
-      const sisaTunggakan = Math.max(0, totalTagihan - totalTerbayar);
+      // JUMLAH (Total Sisa Tunggakan)
+      const sisaTunggakan = sisaTahunLalu + sisaDaftarUlang + sisaSyahriyah + sisaLainLain;
+      const totalTagihan = tagihanTahunLalu + tagihanDaftarUlang + totalTagihanSyahriyah + tagihanLainLain;
+      const totalTerbayar = paidTahunLalu + paidDaftarUlang + paidSyahriyah + paidLainLain;
 
       let status: 'Lunas' | 'Mencicil' | 'Menunggak' | 'Keringanan' = 'Menunggak';
       if (sisaTunggakan === 0) {
@@ -151,17 +259,42 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         nisn: siswa.nisn,
         nipd: siswa.nipd,
         nama: siswa.nama,
+        jenisKelamin: siswa.jenisKelamin || 'L',
         rombel: siswa.rombel,
-        waliKelas: siswa.waliKelas,
+        waliKelas: resolvedWali,
         pipStatus: siswa.pipStatus,
         nominalPip: siswa.nominalPip || (siswa.pipStatus === 'Penerima Aktif' ? 1800000 : 0),
+        
+        // 1. Tunggakan Tahun Lalu
+        tagihanTahunLalu,
+        terbayarTahunLalu: paidTahunLalu,
+        sisaTahunLalu,
+
+        // 2. Daftar Ulang
+        tagihanDaftarUlang,
+        terbayarDaftarUlang: paidDaftarUlang,
+        sisaDaftarUlang,
+
+        // 3. Syahriyah Bulanan
         sppBulanan: sppPerBulan,
         bulanMenunggak,
-        totalTagihanSPP,
-        tagihanDSP,
-        terbayarDSP: totalPaidDSP,
-        tagihanUjian,
-        terbayarUjian: totalPaidUjian,
+        totalTagihanSPP: totalTagihanSyahriyah,
+        totalTagihanSyahriyah,
+        terbayarSyahriyah: paidSyahriyah,
+        sisaSyahriyah,
+
+        // 4. Tunggakan Lain-lain
+        tagihanLainLain,
+        terbayarLainLain: paidLainLain,
+        sisaLainLain,
+
+        // DSP & Ujian compatibility
+        tagihanDSP: tagihanDaftarUlang,
+        terbayarDSP: paidDaftarUlang,
+        tagihanUjian: tagihanLainLain,
+        terbayarUjian: paidLainLain,
+
+        // Totals
         totalTagihan,
         totalTerbayar,
         sisaTunggakan,
@@ -170,20 +303,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         catatan: override.catatan
       };
     });
-  }, [siswaList, paymentOverrides, transaksiList]);
-
-  // Filtering states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRombel, setSelectedRombel] = useState('Semua');
-  const [selectedStatus, setSelectedStatus] = useState('Semua');
-  const [filterPipOnly, setFilterPipOnly] = useState(false);
-
-  // Available Rombels from siswaList
-  const rombelOptions = useMemo(() => {
-    const set = new Set<string>();
-    siswaList.forEach(s => set.add(s.rombel));
-    return ['Semua', ...Array.from(set).sort()];
-  }, [siswaList]);
+  }, [siswaList, paymentOverrides, transaksiList, rombelWaliMap]);
 
   // Filtered List
   const filteredPembayaran = useMemo(() => {
@@ -193,7 +313,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         item.nisn.includes(searchQuery) ||
         item.nipd.includes(searchQuery);
 
-      const matchRombel = selectedRombel === 'Semua' || item.rombel === selectedRombel;
+      const matchRombel = selectedRombel === 'Semua' || item.rombel === selectedRombel || item.rombel.replace(/\s+/g, '-') === selectedRombel.replace(/\s+/g, '-');
       const matchStatus = selectedStatus === 'Semua' || item.status === selectedStatus;
       const matchPip = !filterPipOnly || item.pipStatus === 'Penerima Aktif' || item.pipStatus === 'Nominasi';
 
@@ -201,7 +321,26 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     });
   }, [pembayaranList, searchQuery, selectedRombel, selectedStatus, filterPipOnly]);
 
-  // Summary Metrics
+  // Column totals for the current filtered list (Excel bottom totals row)
+  const ledgerTotals = useMemo(() => {
+    const totalTahunLalu = filteredPembayaran.reduce((acc, p) => acc + p.sisaTahunLalu, 0);
+    const totalDaftarUlang = filteredPembayaran.reduce((acc, p) => acc + p.sisaDaftarUlang, 0);
+    const totalSyahriyah = filteredPembayaran.reduce((acc, p) => acc + p.sisaSyahriyah, 0);
+    const totalLainLain = filteredPembayaran.reduce((acc, p) => acc + p.sisaLainLain, 0);
+    const totalJumlah = filteredPembayaran.reduce((acc, p) => acc + p.sisaTunggakan, 0);
+    const totalSiswaMenunggak = filteredPembayaran.filter(p => p.sisaTunggakan > 0).length;
+
+    return {
+      totalTahunLalu,
+      totalDaftarUlang,
+      totalSyahriyah,
+      totalLainLain,
+      totalJumlah,
+      totalSiswaMenunggak
+    };
+  }, [filteredPembayaran]);
+
+  // Overall Financial Summary Metrics
   const summaryMetrics = useMemo(() => {
     const totalTagihanAll = pembayaranList.reduce((acc, p) => acc + p.totalTagihan, 0);
     const totalTerbayarAll = pembayaranList.reduce((acc, p) => acc + p.totalTerbayar, 0);
@@ -225,25 +364,40 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
   // Modal State for Payment Input
   const [selectedStudentForPay, setSelectedStudentForPay] = useState<PembayaranItem | null>(null);
-  const [payKategori, setPayKategori] = useState<'SPP Bulanan' | 'DSP / Uang Gedung' | 'Praktik & Ujian' | 'Lainnya'>('SPP Bulanan');
+  const [payKategori, setPayKategori] = useState<KategoriPosKeuangan>('Syahriyah / SPP Bulanan');
   const [payMonths, setPayMonths] = useState<string[]>([]);
   const [payAmount, setPayAmount] = useState<number>(150000);
   const [payMetode, setPayMetode] = useState<'Tunai Kasir' | 'Transfer Bank BNI' | 'Alokasi Dana PIP'>('Tunai Kasir');
   const [payCatatan, setPayCatatan] = useState('');
 
-  // Modal State for Printing Letter & Receipt
+  // Modal State for Printing Letter, Receipt & Ledger
   const [selectedLetterItem, setSelectedLetterItem] = useState<PembayaranItem | null>(null);
   const [selectedReceiptItem, setSelectedReceiptItem] = useState<TransaksiKwitansi | null>(null);
 
-  // Handle Opening Pay Modal
+  // Modal State for 2-Week Automated Notification Broadcast to Homeroom Teachers
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastTargetRombel, setBroadcastTargetRombel] = useState<string>('X-1');
+  const [lastBroadcastDate, setLastBroadcastDate] = useState<string>(() => {
+    try {
+      return localStorage.getItem('simops_last_broadcast_wali') || '2026-11-15';
+    } catch {
+      return '2026-11-15';
+    }
+  });
+
+  // Handle Opening Pay Modal (Disabled for Wali Kelas)
   const handleOpenPay = (student: PembayaranItem) => {
+    if (isWaliKelas) {
+      onShowToast("Perhatian: Wali Kelas hanya memiliki hak akses cek data (Read-Only). Pembayaran kasir dicatat oleh Bendahara.");
+      return;
+    }
     setSelectedStudentForPay(student);
-    setPayKategori('SPP Bulanan');
+    setPayKategori('Syahriyah / SPP Bulanan');
     const firstUnpaid = student.bulanMenunggak[0] || 'Juli';
     setPayMonths([firstUnpaid]);
     setPayAmount(student.sppBulanan);
     setPayMetode(student.pipStatus === 'Penerima Aktif' ? 'Alokasi Dana PIP' : 'Tunai Kasir');
-    setPayCatatan(`Pembayaran SPP Bulan ${firstUnpaid}`);
+    setPayCatatan(`Pembayaran Syahriyah/SPP Bulan ${firstUnpaid}`);
   };
 
   // Submit Payment
@@ -269,7 +423,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
       nisn: selectedStudentForPay.nisn,
       rombel: selectedStudentForPay.rombel,
       kategori: payKategori,
-      bulanDibayar: payKategori === 'SPP Bulanan' ? payMonths : undefined,
+      bulanDibayar: payKategori === 'Syahriyah / SPP Bulanan' || payKategori === 'SPP Bulanan' ? payMonths : undefined,
       jumlah: payAmount,
       metode: payMetode,
       keterangan: payCatatan || `Pembayaran ${payKategori}`,
@@ -278,7 +432,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
     saveTransaksi([newTx, ...transaksiList]);
 
-    // Notify operator activity
     if (onAddActivity) {
       onAddActivity(
         `Pembayaran ${payKategori} Siswa`,
@@ -294,10 +447,10 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [syncModalTab, setSyncModalTab] = useState<'status' | 'ekspor' | 'impor' | 'tarif'>('status');
 
-  // Tarif Standar Sekolah
+  // School Tariffs State
   const [tarifSpp, setTarifSpp] = useState<number>(150000);
-  const [tarifDsp, setTarifDsp] = useState<number>(1200000);
-  const [tarifUjian, setTarifUjian] = useState<number>(350000);
+  const [tarifDaftarUlang, setTarifDaftarUlang] = useState<number>(450000);
+  const [tarifLainLain, setTarifLainLain] = useState<number>(200000);
 
   // Manual Sync with Bendahara & Cloud
   const handleSyncWithBendaharaApp = () => {
@@ -336,7 +489,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     ];
 
     let runningSaldo = 0;
-    // Urutkan dari transaksi terlama ke terbaru untuk saldo kas berjalan
     const sortedTx = [...transaksiList].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
 
     const rows = sortedTx.map((tx, idx) => {
@@ -432,14 +584,13 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
           const rawNisn = nisnIdx !== -1 ? cols[nisnIdx].replace(/['"]+/g, '') : '';
           const rawNama = namaIdx !== -1 ? cols[namaIdx] : '';
           const rawJumlah = jumlahIdx !== -1 ? parseInt(cols[jumlahIdx].replace(/[^0-9]/g, ''), 10) : 150000;
-          const rawKategori = kategoriIdx !== -1 ? cols[kategoriIdx] : 'SPP Bulanan';
+          const rawKategori = kategoriIdx !== -1 ? cols[kategoriIdx] : 'Syahriyah / SPP Bulanan';
           const rawTanggal = tanggalIdx !== -1 && cols[tanggalIdx] ? cols[tanggalIdx] : new Date().toISOString().slice(0, 10);
           const rawMetode = metodeIdx !== -1 && cols[metodeIdx] ? cols[metodeIdx] : 'Tunai Kasir';
           const rawKet = ketIdx !== -1 && cols[ketIdx] ? cols[ketIdx] : `Import dari Aplikasi Bendahara`;
 
           if (isNaN(rawJumlah) || rawJumlah <= 0) continue;
 
-          // Cari siswa yang cocok di siswaList
           const matchedSiswa = siswaList.find(s => 
             (rawNisn && s.nisn === rawNisn) || 
             (rawNama && s.nama.toLowerCase().includes(rawNama.toLowerCase()))
@@ -448,11 +599,21 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
           const studentId = matchedSiswa ? matchedSiswa.id : `ext-${Date.now()}-${i}`;
           const studentName = matchedSiswa ? matchedSiswa.nama : (rawNama || 'Siswa Terdaftar');
           const studentNisn = matchedSiswa ? matchedSiswa.nisn : (rawNisn || '0000000000');
-          const studentRombel = matchedSiswa ? matchedSiswa.rombel : 'Kelas X-A';
+          const studentRombel = matchedSiswa ? matchedSiswa.rombel : 'X-1';
 
-          const validKategori = ['SPP Bulanan', 'DSP / Uang Gedung', 'Praktik & Ujian', 'Seragam & Buku', 'Lainnya'].includes(rawKategori)
+          const validKategori: KategoriPosKeuangan = [
+            'Syahriyah / SPP Bulanan',
+            'SPP Bulanan',
+            'Tunggakan Tahun Lalu',
+            'Daftar Ulang',
+            'Tunggakan Lain-lain',
+            'DSP / Uang Gedung',
+            'Praktik & Ujian',
+            'Seragam & Buku',
+            'Lainnya'
+          ].includes(rawKategori as any)
             ? (rawKategori as any)
-            : 'SPP Bulanan';
+            : 'Syahriyah / SPP Bulanan';
 
           const validMetode = ['Tunai Kasir', 'Transfer Bank BNI', 'Alokasi Dana PIP'].includes(rawMetode)
             ? (rawMetode as any)
@@ -498,77 +659,171 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     event.target.value = '';
   };
 
-  // Terapkan Tarif Global ke Seluruh Siswa
+  // Apply Global Tariffs
   const handleApplyGlobalTarif = () => {
+    if (isWaliKelas) {
+      onShowToast("Wali Kelas tidak diizinkan mengubah tarif standar sekolah.");
+      return;
+    }
     const newOverrides: Record<string, Partial<PembayaranItem>> = { ...paymentOverrides };
     siswaList.forEach(s => {
       const prev = newOverrides[s.id] || {};
       newOverrides[s.id] = {
         ...prev,
         sppBulanan: tarifSpp,
-        tagihanDSP: s.rombel.includes('X-') ? tarifDsp : 0,
-        tagihanUjian: tarifUjian
+        tagihanDaftarUlang: tarifDaftarUlang,
+        tagihanLainLain: tarifLainLain
       };
     });
     saveOverrides(newOverrides);
-    onShowToast("Tarif standar SPP, DSP, dan Ujian berhasil diterapkan ke seluruh peserta didik!");
+    onShowToast("Tarif standar Syahriyah, Daftar Ulang, dan Lain-lain berhasil diterapkan ke seluruh peserta didik!");
   };
 
-  // Export to CSV
+  // Export Filtered Table to CSV
   const handleExportCSV = () => {
-    if (pembayaranList.length === 0) {
+    if (filteredPembayaran.length === 0) {
       alert("Tidak ada data untuk diekspor.");
       return;
     }
-    const headers = ['No', 'NISN', 'NIPD', 'Nama Siswa', 'Rombel', 'Status PIP', 'Total Tagihan', 'Total Terbayar', 'Sisa Tunggakan', 'Status'];
+    const headers = ['No', 'Nama Siswa', 'JK', 'Kelas', 'Wali Kelas', 'Tahun Lalu', 'Daftar Ulang', 'Syahriyah (Jul-Des)', 'Lain-lain', 'Jumlah Tunggakan', 'Status PIP', 'Keterangan'];
     const rows = filteredPembayaran.map((item, index) => [
       index + 1,
-      `'${item.nisn}`,
-      `'${item.nipd}`,
       `"${item.nama}"`,
+      item.jenisKelamin,
       `"${item.rombel}"`,
-      `"${item.pipStatus}"`,
-      item.totalTagihan,
-      item.totalTerbayar,
+      `"${item.waliKelas}"`,
+      item.sisaTahunLalu,
+      item.sisaDaftarUlang,
+      item.sisaSyahriyah,
+      item.sisaLainLain,
       item.sisaTunggakan,
-      item.status
+      `"${item.pipStatus}"`,
+      `"${item.status}${item.pipStatus === 'Penerima Aktif' ? ' (PIP BNI Rp ' + item.nominalPip.toLocaleString('id-ID') + ')' : ''}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Rekap_Tunggakan_Siswa_SMA_NU_Kaplongan_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Buku_Ledger_Tunggakan_Siswa_${selectedRombel}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    onShowToast("File rekapitulasi tunggakan siswa berhasil diunduh.");
+    onShowToast("File rekapitulasi buku ledger tunggakan berhasil diunduh.");
+  };
+
+  // Target class data for the 2-week broadcast generator
+  const broadcastStudents = useMemo(() => {
+    return pembayaranList.filter(item => {
+      if (broadcastTargetRombel === 'Semua') return true;
+      return item.rombel === broadcastTargetRombel || item.rombel.replace(/\s+/g, '-') === broadcastTargetRombel.replace(/\s+/g, '-');
+    });
+  }, [pembayaranList, broadcastTargetRombel]);
+
+  const targetWaliKelasName = useMemo(() => {
+    if (broadcastTargetRombel === 'Semua') return 'Seluruh Bapak/Ibu Wali Kelas';
+    return rombelWaliMap.get(broadcastTargetRombel) || activeWaliKelasName;
+  }, [broadcastTargetRombel, rombelWaliMap, activeWaliKelasName]);
+
+  // Generate automated 2-week reminder message text
+  const generatedBroadcastText = useMemo(() => {
+    const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const menunggakList = broadcastStudents.filter(s => s.sisaTunggakan > 0);
+    const totalTunggakanKelas = menunggakList.reduce((acc, s) => acc + s.sisaTunggakan, 0);
+
+    let text = `*PEMBERITAHUAN TUNGGAKAN SISWA (UPDATE BERKALA 2 MINGGUAN)*\n`;
+    text += `*SMA NU KAPLONGAN INDRAMAYU*\n`;
+    text += `Periode Pemantauan: ${today}\n`;
+    text += `Target: Kelas ${broadcastTargetRombel} (Wali Kelas: ${targetWaliKelasName})\n\n`;
+    text += `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n`;
+    text += `Yth. Bapak/Ibu Wali Kelas, berikut kami sampaikan rekapitulasi tunggakan administrasi keuangan peserta didik untuk pemantauan berkala dua mingguan:\n\n`;
+
+    if (menunggakList.length === 0) {
+      text += `Alhamdulillah, seluruh peserta didik di kelas ini telah LUNAS menyelesaikan kewajiban administrasi sekolah.\n\n`;
+    } else {
+      menunggakList.forEach((s, idx) => {
+        text += `${idx + 1}. *${s.nama}* (${s.jenisKelamin})\n`;
+        text += `   • Th. Lalu      : Rp ${s.sisaTahunLalu.toLocaleString('id-ID')}\n`;
+        text += `   • Daftar Ulang  : Rp ${s.sisaDaftarUlang.toLocaleString('id-ID')}\n`;
+        text += `   • Syahriyah/SPP : Rp ${s.sisaSyahriyah.toLocaleString('id-ID')}\n`;
+        text += `   • Lain-lain     : Rp ${s.sisaLainLain.toLocaleString('id-ID')}\n`;
+        text += `   👉 *TOTAL : Rp ${s.sisaTunggakan.toLocaleString('id-ID')}*`;
+        if (s.pipStatus === 'Penerima Aktif') {
+          text += ` _(Penerima PIP BNI Rp ${s.nominalPip.toLocaleString('id-ID')})_`;
+        }
+        text += `\n`;
+      });
+
+      text += `\n--------------------------------------------\n`;
+      text += `*TOTAL TUNGGAKAN KELAS*: Rp ${totalTunggakanKelas.toLocaleString('id-ID')}\n`;
+      text += `*Jumlah Siswa Menunggak*: ${menunggakList.length} dari ${broadcastStudents.length} Siswa\n\n`;
+    }
+
+    text += `Mohon bantuan Bapak/Ibu Wali Kelas untuk memantau dan memberikan bimbingan kepada peserta didik/wali murid yang bersangkutan.\n\n`;
+    text += `Wassalamu'alaikum Warahmatullahi Wabarakatuh.\n`;
+    text += `*Koordinator Operator & Bendahara SMA NU Kaplongan*`;
+
+    return text;
+  }, [broadcastStudents, broadcastTargetRombel, targetWaliKelasName]);
+
+  const handleCopyBroadcastText = () => {
+    navigator.clipboard.writeText(generatedBroadcastText);
+    onShowToast("Teks update 2 mingguan berhasil disalin ke clipboard!");
+  };
+
+  const handleSendWhatsAppDirect = () => {
+    const encoded = encodeURIComponent(generatedBroadcastText);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    setLastBroadcastDate(todayStr);
+    try {
+      localStorage.setItem('simops_last_broadcast_wali', todayStr);
+    } catch (e) {
+      console.error(e);
+    }
+    onShowToast("Membuka WhatsApp untuk mengirim informasi berkala...");
   };
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Synchronization & Integration with Bendahara Application Bar */}
-      <div className="no-print print:hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-indigo-500/10 border border-emerald-500/20 dark:border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+      {/* 1. NOTIFIKASI AKSES PERAN WALI KELAS (READ-ONLY) */}
+      {isWaliKelas && (
+        <div className="no-print p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500/30 dark:border-amber-500/40 flex items-start sm:items-center gap-3 text-amber-900 dark:text-amber-200">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <span className="material-symbols-outlined text-xl">assignment_ind</span>
+          </div>
+          <div className="flex-1">
+            <h4 className="text-sm font-black flex items-center gap-2">
+              <span>Mode Akses: Wali Kelas (Monitoring Tunggakan - Hak Akses Hanya Lihat / Read-Only)</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-bold uppercase tracking-wider">
+                Read-Only
+              </span>
+            </h4>
+            <p className="text-xs text-amber-800/90 dark:text-amber-300 mt-0.5 leading-relaxed">
+              Sebagai Wali Kelas, Anda berwenang mengecek rincian tunggakan siswa kelas binaan Anda, mencetak lembar buku ledger format sekolah A4, dan menyalin format pemberitahuan broadcast 2 mingguan. Fitur pencatatan kasir, pengubahan tarif, dan impor data kasir dikunci untuk Bendahara &amp; Operator.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 2. BAR SIKLUS BROADCAST OTOMATIS 2 MINGGUAN KE WALI KELAS */}
+      <div className="no-print print:hidden p-4 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-teal-500/10 border border-blue-500/20 dark:border-blue-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm shrink-0">
-            <span className="material-symbols-outlined text-xl">sync_alt</span>
+          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm shrink-0">
+            <span className="material-symbols-outlined text-xl">send_and_archive</span>
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                Sinkronisasi Aplikasi Bendahara &amp; Operator Dapodik
+              <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                Informasi Otomatis 2 Mingguan ke Wali Kelas
               </h4>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                syncEngine === 'supabase'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-              }`}>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>{syncEngine === 'supabase' ? 'Supabase Cloud PostgreSQL' : 'Cloud Server Awan'}</span>
+                <span>Siklus 10: 15 - 30 November 2026 (Aktif)</span>
               </span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-              Terhubung dengan <b>{siswaList.length} Siswa</b> Dapodik • <b>{transaksiList.length} Kwitansi</b> tercatat • Terakhir sinkron: {cloudSyncedAt ? cloudSyncedAt : 'Realtime'}
+              Rutin tiap 2 minggu: Rekapitulasi tunggakan otomatis digenerate per kelas untuk dikirim ke Wali Kelas via WhatsApp &amp; cetak berkala. Terakhir diperbarui: <b>{lastBroadcastDate}</b>.
             </p>
           </div>
         </div>
@@ -576,319 +831,480 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={handleSyncWithBendaharaApp}
-            disabled={isCloudSyncing}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
-            title="Sinkronkan data kasir bendahara dengan database cloud & operator"
+            onClick={() => {
+              setBroadcastTargetRombel(selectedRombel !== 'Semua' ? selectedRombel : 'X-1');
+              setIsBroadcastModalOpen(true);
+            }}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+            title="Buka generator broadcast 2 mingguan ke Wali Kelas"
           >
-            <span className={`material-symbols-outlined text-base ${isCloudSyncing ? 'animate-spin' : ''}`}>
-              sync
-            </span>
-            <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Singkronkan Sekarang'}</span>
+            <span className="material-symbols-outlined text-base">campaign</span>
+            <span>Broadcast 2 Mingguan</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsSyncModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-            title="Buka panel integrasi aplikasi bendahara (ekspor BKU, impor tagihan, konfigurasi tarif)"
-          >
-            <span className="material-symbols-outlined text-base text-primary">
-              hub
-            </span>
-            <span>Integrasi &amp; Ekspor BKU</span>
-          </button>
+          {!isWaliKelas && (
+            <button
+              type="button"
+              onClick={handleSyncWithBendaharaApp}
+              disabled={isCloudSyncing}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+              title="Sinkronkan data kasir bendahara dengan database cloud & operator"
+            >
+              <span className={`material-symbols-outlined text-base ${isCloudSyncing ? 'animate-spin' : ''}`}>
+                sync
+              </span>
+              <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Singkronkan Database'}</span>
+            </button>
+          )}
+
+          {!isWaliKelas && (
+            <button
+              type="button"
+              onClick={() => setIsSyncModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Panel ekspor BKU dan tarif standar sekolah"
+            >
+              <span className="material-symbols-outlined text-base text-primary">hub</span>
+              <span>Integrasi &amp; Ekspor BKU</span>
+            </button>
+          )}
         </div>
       </div>
-      {/* 1. VIEW TAB: TUNGGAKAN DAN SPP */}
-      {subType === 'tunggakan-dan-spp' && (
-        <>
-          {/* Top Financial Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Tagihan Siswa</span>
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-300 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">receipt</span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                  Rp {summaryMetrics.totalTagihanAll.toLocaleString('id-ID')}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Dari total <b>{pembayaranList.length}</b> siswa terdaftar
-                </div>
-              </div>
-            </div>
 
-            <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Kas Masuk (Lunas)</span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">payments</span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  Rp {summaryMetrics.totalTerbayarAll.toLocaleString('id-ID')}
-                </div>
-                <div className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold mt-1">
-                  {summaryMetrics.pctLunas}% Pembayaran Terpenuhi
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Sisa Tunggakan</span>
-                <div className="w-8 h-8 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">trending_down</span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
-                  Rp {summaryMetrics.totalTunggakanAll.toLocaleString('id-ID')}
-                </div>
-                <div className="text-xs text-rose-600 dark:text-rose-400 mt-1">
-                  <b>{summaryMetrics.countMenunggak}</b> Siswa belum melunasi
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Potensi Alokasi PIP</span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                  {summaryMetrics.countMenunggakPip} Siswa
-                </div>
-                <div className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                  Tersedia Rp {summaryMetrics.totalDanaPipTersedia.toLocaleString('id-ID')} dana BNI
-                </div>
-              </div>
+      {/* 3. FINANCIAL SUMMARY METRIC CARDS */}
+      <div className="no-print print:hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Tagihan Siswa</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-300 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lg">receipt</span>
             </div>
           </div>
+          <div className="mt-2">
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
+              Rp {summaryMetrics.totalTagihanAll.toLocaleString('id-ID')}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Dari <b>{pembayaranList.length}</b> siswa terdaftar
+            </div>
+          </div>
+        </div>
 
-          {/* Connected with Operator Banner */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 via-blue-500/5 to-transparent border border-sky-500/20 dark:border-sky-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-xl">hub</span>
+        <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Kas Masuk (Lunas)</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lg">payments</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+              Rp {summaryMetrics.totalTerbayarAll.toLocaleString('id-ID')}
+            </div>
+            <div className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold mt-1">
+              {summaryMetrics.pctLunas}% Terbayar
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Sisa Tunggakan</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lg">trending_down</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
+              Rp {summaryMetrics.totalTunggakanAll.toLocaleString('id-ID')}
+            </div>
+            <div className="text-xs text-rose-600 dark:text-rose-400 mt-1">
+              <b>{summaryMetrics.countMenunggak}</b> Siswa memiliki tunggakan
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Potensi Alokasi PIP</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+              {summaryMetrics.countMenunggakPip} Siswa
+            </div>
+            <div className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+              Tersedia Rp {summaryMetrics.totalDanaPipTersedia.toLocaleString('id-ID')} BNI
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. MAIN VIEW: BUKU LEDGER TUNGGAKAN SISWA SESUAI FOTO EXCEL SEKOLAH */}
+      {subType === 'tunggakan-dan-spp' && (
+        <div className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs space-y-4">
+          
+          {/* Top Control Bar: View Mode, Periode, Kelas, Wali Kelas & Print */}
+          <div className="no-print flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('ledger')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    viewMode === 'ledger'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">table_view</span>
+                  <span>Format Buku Ledger Sekolah</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('compact')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    viewMode === 'compact'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">list_alt</span>
+                  <span>Tabel Ringkasan Kasir</span>
+                </button>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Integrasi Otomatis Dapodik Operator &amp; Bendahara Sekolah
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Daftar siswa, rombel, dan status penerima PIP tersinkron langsung dari Master Data Operator ({schoolInfo?.operatorName || 'Bagas Pratama, S.Kom'}).
-                </p>
+
+              {/* Periode Selector (Header Buku Ledger) */}
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-slate-500 font-medium">Periode:</span>
+                <select
+                  value={ledgerPeriode}
+                  onChange={(e) => setLedgerPeriode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="SAMPAI AGUSTUS 2026">SAMPAI AGUSTUS 2026</option>
+                  <option value="SAMPAI SEPTEMBER 2026">SAMPAI SEPTEMBER 2026</option>
+                  <option value="SAMPAI OKTOBER 2026">SAMPAI OKTOBER 2026</option>
+                  <option value="SAMPAI NOVEMBER 2026">SAMPAI NOVEMBER 2026</option>
+                  <option value="SAMPAI DESEMBER 2026">SAMPAI DESEMBER 2026</option>
+                  <option value="SEMESTER GANJIL 2026/2027">SEMESTER GANJIL 2026/2027</option>
+                </select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all shadow-xs"
+                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm text-emerald-600">download</span>
                 <span>Ekspor CSV</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                title="Cetak lembar buku ledger format A4 resmi"
+              >
+                <span className="material-symbols-outlined text-sm">print</span>
+                <span>Cetak Lembar A4</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filtering Toolbar */}
+          <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex-1 relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nama siswa, NISN, atau NIPD..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Kelas / Perkelas Filter */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-bold">Kelas:</span>
+                <select
+                  value={selectedRombel}
+                  onChange={(e) => setSelectedRombel(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-200 focus:outline-none"
+                >
+                  <option value="Semua">Semua Kelas</option>
+                  {rombelOptions.map((r) => (
+                    <option key={r} value={r}>Kelas {r}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="Semua">Semua Status</option>
+                  <option value="Menunggak">Menunggak</option>
+                  <option value="Mencicil">Mencicil</option>
+                  <option value="Lunas">Lunas</option>
+                </select>
+              </div>
+
+              {/* Filter PIP Only Toggle */}
+              <button
+                type="button"
+                onClick={() => setFilterPipOnly(!filterPipOnly)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-all cursor-pointer ${
+                  filterPipOnly
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">account_balance_wallet</span>
+                <span>Penerima PIP</span>
+              </button>
+            </div>
+          </div>
+
+          {/* PRINT-ONLY OFFICIAL KOP SURAT (SESUAI ATURAN GEMINI.md) */}
+          <div className="hidden print:block pb-4 mb-3 border-b-4 border-double border-slate-900 text-center">
+            <div className="flex items-center justify-center gap-4">
+              <img src="/logo-sma-nu.png?v=3" alt="Logo SMA NU Kaplongan" className="w-20 h-20 object-contain" />
+              <div className="text-center">
+                <h4 className="text-xs uppercase font-bold tracking-widest text-slate-800">
+                  LEMBAGA PENDIDIKAN MA'ARIF NAHDLATUL ULAMA
+                </h4>
+                <h2 className="text-xl font-black tracking-tight text-slate-950 uppercase">
+                  SMA NU KAPLONGAN INDRAMAYU
+                </h2>
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  NPSN: 20216007 • Status Akreditasi: A • Alamat: Jl. Raya Kaplongan No. 28 Karangampel Kab. Indramayu 45283
+                </p>
+                <p className="text-[10px] text-slate-600">
+                  Website: www.smanukaplongan.sch.id • Email: smanukaplongan@gmail.com
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLE HEADER IDENTIFIER (PERSIS SEPERTI FOTO EXCEL USER) */}
+          <div className="p-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/20 text-slate-800 dark:text-slate-100">
+            {/* Baris Hijau: SAMPAI AGUSTUS 2026 */}
+            <div className="bg-emerald-600 text-white font-black text-center py-1.5 px-4 rounded-lg tracking-wider text-sm uppercase shadow-xs">
+              {ledgerPeriode}
+            </div>
+
+            {/* Subheader: Kelas & Wali Kelas */}
+            <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 dark:text-slate-400 w-24">Kelas</span>
+                <span className="font-mono text-slate-900 dark:text-slate-100 text-sm font-black">: {selectedRombel}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 dark:text-slate-400 w-24">Wali Kelas</span>
+                <span className="text-slate-900 dark:text-slate-100 text-sm font-black uppercase">: {activeWaliKelasName}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* EMPTY STATE */}
+          {siswaList.length === 0 ? (
+            <div className="p-10 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-3">
+              <span className="material-symbols-outlined text-4xl text-slate-400">group_off</span>
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Database Siswa Belum Diisi</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                Modul keuangan bendahara terhubung otomatis dengan data Dapodik. Silakan tambahkan data peserta didik di Master Data agar rincian tagihan dan tunggakan terhitung otomatis.
+              </p>
               {onNavigateToSiswa && (
                 <button
                   type="button"
                   onClick={onNavigateToSiswa}
-                  className="px-3 py-1.5 rounded-xl bg-primary dark:bg-sky-600 hover:bg-primary-container dark:hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                  className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm"
                 >
-                  <span className="material-symbols-outlined text-sm">groups</span>
-                  <span>Buka Data Siswa Dapodik</span>
+                  <span className="material-symbols-outlined text-sm">person_add</span>
+                  <span>Input Data Siswa di Master Data</span>
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Table Container */}
-          <div className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs space-y-4">
-            {/* Toolbar Filters */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex-1 relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari nama siswa, NISN, atau NIPD..."
-                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Rombel Filter */}
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 font-medium">Rombel:</span>
-                  <select
-                    value={selectedRombel}
-                    onChange={(e) => setSelectedRombel(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                  >
-                    {rombelOptions.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Status Filter */}
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                  >
-                    <option value="Semua">Semua Status</option>
-                    <option value="Menunggak">Menunggak</option>
-                    <option value="Mencicil">Mencicil</option>
-                    <option value="Lunas">Lunas</option>
-                  </select>
-                </div>
-
-                {/* Filter PIP Only Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setFilterPipOnly(!filterPipOnly)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-all ${
-                    filterPipOnly
-                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">account_balance_wallet</span>
-                  <span>Penerima PIP Saja</span>
-                </button>
-              </div>
+          ) : filteredPembayaran.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+              Tidak ada data siswa yang cocok dengan filter pencarian atau kelas &ldquo;{selectedRombel}&rdquo;.
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {/* TABEL BUKU LEDGER RESMI SEKOLAH */}
+              <table className="w-full text-left border-collapse text-xs border border-slate-300 dark:border-slate-700">
+                <thead>
+                  {/* Header Baris 1: Nama Kolom */}
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-black border-b border-slate-300 dark:border-slate-700">
+                    <th className="py-2.5 px-2 text-center border-r border-slate-300 dark:border-slate-700 w-10">NO</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700 min-w-[180px]">NAMA</th>
+                    <th className="py-2.5 px-2 text-center border-r border-slate-300 dark:border-slate-700 w-12">JK</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-300 dark:border-slate-700 min-w-[120px]">TAHUN LALU</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-300 dark:border-slate-700 min-w-[120px] bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200">DAFTAR ULANG</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-300 dark:border-slate-700 min-w-[160px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200">
+                      SPP / SYAHRIYAH<br /><span className="text-[10px] font-normal">JULI - DESEMBER</span>
+                    </th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-300 dark:border-slate-700 min-w-[120px]">LAIN-LAIN</th>
+                    <th className="py-2.5 px-3 text-right border-r border-slate-300 dark:border-slate-700 min-w-[130px] bg-slate-200/80 dark:bg-slate-700/80 font-black text-rose-700 dark:text-rose-300">JUMLAH</th>
+                    <th className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700 min-w-[160px]">KETERANGAN</th>
+                    {!isWaliKelas && (
+                      <th className="no-print py-2.5 px-2 text-center min-w-[110px]">AKSI</th>
+                    )}
+                  </tr>
 
-            {/* Empty State */}
-            {siswaList.length === 0 ? (
-              <div className="p-10 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-3">
-                <span className="material-symbols-outlined text-4xl text-slate-400">group_off</span>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Database Siswa Belum Diisi</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  Modul keuangan bendahara terhubung otomatis dengan data Dapodik. Silakan tambahkan data peserta didik di Master Data agar rincian tagihan dan tunggakan terhitung otomatis.
-                </p>
-                {onNavigateToSiswa && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToSiswa}
-                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm"
-                  >
-                    <span className="material-symbols-outlined text-sm">person_add</span>
-                    <span>Input Data Siswa di Master Data</span>
-                  </button>
-                )}
-              </div>
-            ) : filteredPembayaran.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
-                Tidak ada data siswa yang cocok dengan filter pencarian &ldquo;{searchQuery}&rdquo;.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-bold">
-                      <th className="py-3 px-3">Siswa &amp; Identitas</th>
-                      <th className="py-3 px-3">Rombel</th>
-                      <th className="py-3 px-3">Status PIP</th>
-                      <th className="py-3 px-3 text-right">Total Tagihan</th>
-                      <th className="py-3 px-3 text-right">Sudah Dibayar</th>
-                      <th className="py-3 px-3 text-right">Sisa Tunggakan</th>
-                      <th className="py-3 px-3 text-center">Status</th>
-                      <th className="py-3 px-3 text-center">Aksi Bendahara</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
-                    {filteredPembayaran.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-slate-800 dark:text-slate-100">{item.nama}</div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            NISN: {item.nisn} • NIPD: {item.nipd}
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-300">
-                            {item.rombel}
+                  {/* Header Baris 2: Nomor Urut Kolom (1) s/d (7) Persis Excel */}
+                  <tr className="bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-bold text-[11px] text-center border-b-2 border-slate-400 dark:border-slate-600">
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700">(1)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700">(2)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700">(3)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700 text-right pr-3">(4)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700 text-right pr-3">(5)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700 text-right pr-3">(6)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700 text-right pr-3">(7)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700 text-right pr-3 font-black">(8)</td>
+                    <td className="py-1 border-r border-slate-300 dark:border-slate-700"></td>
+                    {!isWaliKelas && <td className="no-print py-1"></td>}
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredPembayaran.map((item, idx) => (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      {/* (1) NO */}
+                      <td className="py-2.5 px-2 text-center font-mono font-bold border-r border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+                        {idx + 1}
+                      </td>
+
+                      {/* (2) NAMA SISWA */}
+                      <td className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700">
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{item.nama}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                          NISN: {item.nisn} {selectedRombel === 'Semua' && `• ${item.rombel}`}
+                        </div>
+                      </td>
+
+                      {/* (3) JK (L/P) */}
+                      <td className="py-2.5 px-2 text-center font-bold border-r border-slate-300 dark:border-slate-700">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] ${
+                          item.jenisKelamin === 'L'
+                            ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300'
+                            : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300'
+                        }`}>
+                          {item.jenisKelamin}
+                        </span>
+                      </td>
+
+                      {/* (4) TAHUN LALU */}
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700">
+                        {item.sisaTahunLalu > 0 ? (
+                          <span className="text-slate-800 dark:text-slate-200 font-bold">
+                            {item.sisaTahunLalu.toLocaleString('id-ID')}
                           </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          {item.pipStatus === 'Penerima Aktif' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800 font-bold inline-flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+
+                      {/* (5) DAFTAR ULANG */}
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700 bg-sky-50/40 dark:bg-sky-950/20">
+                        {item.sisaDaftarUlang > 0 ? (
+                          <span className="text-slate-800 dark:text-slate-200 font-bold">
+                            {item.sisaDaftarUlang.toLocaleString('id-ID')}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+
+                      {/* (6) SPP / SYAHRIYAH / JULI - DESEMBER */}
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700 bg-emerald-50/40 dark:bg-emerald-950/20">
+                        {item.sisaSyahriyah > 0 ? (
+                          <span className="text-slate-800 dark:text-slate-200 font-bold">
+                            {item.sisaSyahriyah.toLocaleString('id-ID')}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+
+                      {/* (7) TUNGGAKAN LAIN-LAIN */}
+                      <td className="py-2.5 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700">
+                        {item.sisaLainLain > 0 ? (
+                          <span className="text-slate-800 dark:text-slate-200 font-bold">
+                            {item.sisaLainLain.toLocaleString('id-ID')}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+
+                      {/* (8) JUMLAH TOTAL TUNGGAKAN */}
+                      <td className="py-2.5 px-3 text-right font-mono font-black border-r border-slate-300 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/70">
+                        {item.sisaTunggakan > 0 ? (
+                          <span className="text-rose-600 dark:text-rose-400">
+                            {item.sisaTunggakan.toLocaleString('id-ID')}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">LUNAS</span>
+                        )}
+                      </td>
+
+                      {/* KETERANGAN */}
+                      <td className="py-2.5 px-3 border-r border-slate-300 dark:border-slate-700">
+                        <div className="space-y-1">
+                          {item.pipStatus === 'Penerima Aktif' && (
+                            <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
                               <span>PIP: Rp {item.nominalPip.toLocaleString('id-ID')}</span>
-                            </span>
-                          ) : item.pipStatus === 'Nominasi' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800 font-semibold">
-                              Nominasi PIP
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">-</span>
+                            </div>
                           )}
-                        </td>
-                        <td className="py-3 px-3 text-right font-medium text-slate-700 dark:text-slate-300">
-                          Rp {item.totalTagihan.toLocaleString('id-ID')}
-                        </td>
-                        <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                          Rp {item.totalTerbayar.toLocaleString('id-ID')}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          {item.sisaTunggakan > 0 ? (
-                            <span className="font-bold text-rose-600 dark:text-rose-400">
-                              Rp {item.sisaTunggakan.toLocaleString('id-ID')}
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">Lunas</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          {item.status === 'Lunas' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold">
-                              Lunas
-                            </span>
-                          ) : item.status === 'Mencicil' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold">
-                              Mencicil
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 font-bold">
-                              Menunggak
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                            {item.sisaTunggakan === 0 ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lunas Terpenuhi</span>
+                            ) : item.totalTerbayar > 0 ? (
+                              <span>Tercicil Rp {item.totalTerbayar.toLocaleString('id-ID')}</span>
+                            ) : (
+                              <span>Belum ada pembayaran</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* AKSI BENDAHARA (HANYA DITAMPILKAN UNTUK BENDAHARA & OPS) */}
+                      {!isWaliKelas && (
+                        <td className="no-print py-2.5 px-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
                             {item.sisaTunggakan > 0 ? (
                               <>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenPay(item)}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 transition-all shadow-2xs"
-                                  title="Catat Pembayaran"
+                                  className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-0.5 shadow-2xs cursor-pointer"
+                                  title="Catat Pembayaran Kasir"
                                 >
-                                  <span className="material-symbols-outlined text-sm">payments</span>
+                                  <span className="material-symbols-outlined text-xs">payments</span>
                                   <span>Bayar</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setSelectedLetterItem(item)}
-                                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1 transition-all"
-                                  title="Cetak Surat Pemberitahuan Tunggakan"
+                                  className="p-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
+                                  title="Cetak Surat Pemberitahuan"
                                 >
-                                  <span className="material-symbols-outlined text-sm">mail</span>
-                                  <span>Surat</span>
+                                  <span className="material-symbols-outlined text-xs">mail</span>
                                 </button>
                               </>
                             ) : (
@@ -897,36 +1313,97 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                                 onClick={() => {
                                   const tx = transaksiList.find(t => t.siswaId === item.siswaId);
                                   if (tx) setSelectedReceiptItem(tx);
-                                  else onShowToast("Belum ada kwitansi tersimpan untuk siswa ini.");
+                                  else onShowToast("Belum ada kwitansi transaksi tercatat.");
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-sky-100 dark:bg-sky-950/60 hover:bg-sky-200 text-sky-800 dark:text-sky-300 font-semibold flex items-center gap-1 transition-all"
+                                className="px-2 py-1 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-bold text-[11px] flex items-center gap-0.5 cursor-pointer"
+                                title="Lihat Kwitansi"
                               >
-                                <span className="material-symbols-outlined text-sm">receipt</span>
+                                <span className="material-symbols-outlined text-xs">receipt</span>
                                 <span>Kwitansi</span>
                               </button>
                             )}
                           </div>
                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+
+                {/* FOOTER TOTALS ROW (PERSIS TOTAL DI BAGIAN BAWAH EXCEL) */}
+                <tfoot>
+                  <tr className="bg-slate-200/90 dark:bg-slate-800 font-black text-slate-900 dark:text-slate-100 border-t-2 border-slate-400 dark:border-slate-600 text-xs">
+                    <td colSpan={3} className="py-3 px-3 text-center border-r border-slate-300 dark:border-slate-700 font-bold tracking-wider uppercase">
+                      JUMLAH / TOTAL KESELURUHAN
+                    </td>
+                    {/* (4) Total Tahun Lalu */}
+                    <td className="py-3 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700 font-black">
+                      {ledgerTotals.totalTahunLalu.toLocaleString('id-ID')}
+                    </td>
+                    {/* (5) Total Daftar Ulang */}
+                    <td className="py-3 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700 font-black bg-sky-100/60 dark:bg-sky-950/40">
+                      {ledgerTotals.totalDaftarUlang.toLocaleString('id-ID')}
+                    </td>
+                    {/* (6) Total Syahriyah */}
+                    <td className="py-3 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700 font-black bg-emerald-100/60 dark:bg-emerald-950/40">
+                      {ledgerTotals.totalSyahriyah.toLocaleString('id-ID')}
+                    </td>
+                    {/* (7) Total Lain-lain */}
+                    <td className="py-3 px-3 text-right font-mono border-r border-slate-300 dark:border-slate-700 font-black">
+                      {ledgerTotals.totalLainLain.toLocaleString('id-ID')}
+                    </td>
+                    {/* (8) Total Jumlah */}
+                    <td className="py-3 px-3 text-right font-mono font-black text-rose-600 dark:text-rose-400 border-r border-slate-300 dark:border-slate-700 text-sm">
+                      {ledgerTotals.totalJumlah.toLocaleString('id-ID')}
+                    </td>
+                    <td className="py-3 px-3 text-xs text-slate-600 dark:text-slate-400 font-bold border-r border-slate-300 dark:border-slate-700">
+                      {ledgerTotals.totalSiswaMenunggak} Siswa Belum Lunas
+                    </td>
+                    {!isWaliKelas && <td className="no-print"></td>}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* PRINT-ONLY SIGNATURE SECTION (A4 RESMI) */}
+          <div className="hidden print:grid grid-cols-3 gap-6 pt-8 mt-6 text-center text-xs text-slate-900 border-t border-slate-400">
+            <div>
+              <div>Mengetahui,</div>
+              <div className="font-bold">Kepala SMA NU Kaplongan</div>
+              <div className="h-16"></div>
+              <div className="font-black underline uppercase">{schoolInfo?.principalName || 'Drs. H. Toufik Zaenal Mustofa, M.Pd.I'}</div>
+              <div className="text-[10px]">NIP/NUPTK: {schoolInfo?.principalNip || '-'}</div>
+            </div>
+
+            <div>
+              <div>Mengetahui,</div>
+              <div className="font-bold">Wali Kelas {selectedRombel}</div>
+              <div className="h-16"></div>
+              <div className="font-black underline uppercase">{activeWaliKelasName}</div>
+              <div className="text-[10px]">Guru Wali Kelas Bina</div>
+            </div>
+
+            <div>
+              <div>Kaplongan, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              <div className="font-bold">Bendahara / Unit Keuangan</div>
+              <div className="h-16"></div>
+              <div className="font-black underline uppercase">{schoolInfo?.operatorName || 'Bagas Pratama, S.Kom'}</div>
+              <div className="text-[10px]">Lembaga Pendidikan Ma'arif NU</div>
+            </div>
           </div>
-        </>
+        </div>
       )}
 
-      {/* 2. VIEW TAB: RIWAYAT KWITANSI & TRANSAKSI */}
+      {/* 5. VIEW TAB: RIWAYAT KWITANSI KASIR */}
       {subType === 'riwayat-kwitansi-bayar' && (
         <div className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-3">
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
-                Riwayat Transaksi &amp; Arsip Kwitansi Bendahara
+                Riwayat Transaksi &amp; Kwitansi Kasir Sekolah
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Daftar bukti pembayaran yang telah dicatat dan terverifikasi kas sekolah.
+                Daftar bukti pembayaran yang telah diverifikasi dan masuk ke kas SMA NU Kaplongan.
               </p>
             </div>
             <div className="text-xs text-slate-500 font-medium">
@@ -985,7 +1462,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setSelectedReceiptItem(tx)}
-                          className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold flex items-center gap-1 mx-auto"
+                          className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold flex items-center gap-1 mx-auto cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-sm">print</span>
                           <span>Cetak</span>
@@ -1000,7 +1477,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         </div>
       )}
 
-      {/* 3. VIEW TAB: REKAP DAN SURAT TUNGGAKAN */}
+      {/* 6. VIEW TAB: REKAPITULASI ROMBEL */}
       {subType === 'rekap-surat-tunggakan' && (
         <div className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-3">
@@ -1009,13 +1486,13 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 Rekapitulasi Tunggakan per Rombongan Belajar
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Laporan keuangan berkala untuk Kepala Sekolah &amp; Komite Yayasan Darul Ma'arif.
+                Pemetaan tunggakan per kelas dan monitoring kinerja Wali Kelas.
               </p>
             </div>
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">print</span>
               <span>Cetak Laporan Format A4</span>
@@ -1023,19 +1500,23 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {rombelOptions.filter(r => r !== 'Semua').map(rombelName => {
-              const rSiswa = pembayaranList.filter(p => p.rombel === rombelName);
+            {rombelOptions.map(rombelName => {
+              const rSiswa = pembayaranList.filter(p => p.rombel === rombelName || p.rombel.replace(/\s+/g, '-') === rombelName.replace(/\s+/g, '-'));
               const rTagihan = rSiswa.reduce((acc, p) => acc + p.totalTagihan, 0);
               const rTerbayar = rSiswa.reduce((acc, p) => acc + p.totalTerbayar, 0);
               const rTunggakan = rSiswa.reduce((acc, p) => acc + p.sisaTunggakan, 0);
               const rMenunggakCount = rSiswa.filter(p => p.sisaTunggakan > 0).length;
+              const rWali = rombelWaliMap.get(rombelName) || (rombelName.includes('X-1') ? 'ABDUL AZIZ MUSTOFA' : 'Wali Kelas');
               const rPct = rTagihan > 0 ? Math.round((rTerbayar / rTagihan) * 100) : 0;
 
               return (
                 <div key={rombelName} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{rombelName}</span>
+                      <div>
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-100">{rombelName}</span>
+                        <div className="text-[11px] text-slate-500 font-semibold">{rWali}</div>
+                      </div>
                       <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                         {rSiswa.length} Siswa
                       </span>
@@ -1071,8 +1552,105 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         </div>
       )}
 
-      {/* MODAL: INPUT PEMBAYARAN */}
-      {selectedStudentForPay && (
+      {/* 7. MODAL: BROADCAST OTOMATIS 2 MINGGUAN KE WALI KELAS */}
+      {isBroadcastModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <span className="material-symbols-outlined text-xl">campaign</span>
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-slate-100">
+                    Generator Pesan Tunggakan 2 Mingguan ke Wali Kelas
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Kirim rincian berkala via WhatsApp &amp; cetak lembar monitoring per kelas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBroadcastModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            {/* Target Kelas & Wali Kelas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Pilih Kelas / Rombel:</label>
+                <select
+                  value={broadcastTargetRombel}
+                  onChange={(e) => setBroadcastTargetRombel(e.target.value)}
+                  className="w-full p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
+                >
+                  {rombelOptions.map((r) => (
+                    <option key={r} value={r}>Kelas {r} ({rombelWaliMap.get(r) || (r.includes('X-1') ? 'ABDUL AZIZ MUSTOFA' : 'Wali Kelas')})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Nama Wali Kelas:</label>
+                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-black text-slate-900 dark:text-slate-100">
+                  {targetWaliKelasName}
+                </div>
+              </div>
+            </div>
+
+            {/* Preview Pesan WhatsApp */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-emerald-600">chat</span>
+                  <span>Pratinjau Format Pesan WhatsApp:</span>
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  {broadcastStudents.filter(s => s.sisaTunggakan > 0).length} siswa menunggak
+                </span>
+              </div>
+              <pre className="p-3.5 rounded-2xl bg-slate-900 text-emerald-400 font-mono text-[11px] whitespace-pre-wrap max-h-56 overflow-y-auto leading-relaxed border border-slate-800 selection:bg-emerald-900">
+                {generatedBroadcastText}
+              </pre>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="material-symbols-outlined text-base text-blue-600">schedule</span>
+                <span>Jadwal Otomatis: Setiap 2 Minggu Sekali</span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleCopyBroadcastText}
+                  className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">content_copy</span>
+                  <span>Salin Format WA</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendWhatsAppDirect}
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">send</span>
+                  <span>Kirim ke Wali Kelas (WA)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. MODAL: INPUT PEMBAYARAN KASIR */}
+      {selectedStudentForPay && !isWaliKelas && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1081,7 +1659,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                   Pencatatan Pembayaran Siswa
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {selectedStudentForPay.nama} ({selectedStudentForPay.rombel}) • Sisa: Rp {selectedStudentForPay.sisaTunggakan.toLocaleString('id-ID')}
+                  {selectedStudentForPay.nama} ({selectedStudentForPay.rombel}) • Total Tunggakan: Rp {selectedStudentForPay.sisaTunggakan.toLocaleString('id-ID')}
                 </p>
               </div>
               <button
@@ -1100,27 +1678,30 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <select
                   value={payKategori}
                   onChange={(e) => {
-                    const cat = e.target.value as any;
+                    const cat = e.target.value as KategoriPosKeuangan;
                     setPayKategori(cat);
-                    if (cat === 'SPP Bulanan') {
+                    if (cat === 'Syahriyah / SPP Bulanan' || cat === 'SPP Bulanan') {
                       setPayAmount(selectedStudentForPay.sppBulanan);
-                    } else if (cat === 'DSP / Uang Gedung') {
-                      setPayAmount(Math.max(0, selectedStudentForPay.tagihanDSP - selectedStudentForPay.terbayarDSP));
-                    } else if (cat === 'Praktik & Ujian') {
-                      setPayAmount(Math.max(0, selectedStudentForPay.tagihanUjian - selectedStudentForPay.terbayarUjian));
+                    } else if (cat === 'Tunggakan Tahun Lalu') {
+                      setPayAmount(selectedStudentForPay.sisaTahunLalu || 350000);
+                    } else if (cat === 'Daftar Ulang') {
+                      setPayAmount(selectedStudentForPay.sisaDaftarUlang || 450000);
+                    } else if (cat === 'Tunggakan Lain-lain') {
+                      setPayAmount(selectedStudentForPay.sisaLainLain || 200000);
                     }
                   }}
                   className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold"
                 >
-                  <option value="SPP Bulanan">SPP Bulanan (Rp {selectedStudentForPay.sppBulanan.toLocaleString('id-ID')}/bln)</option>
-                  <option value="DSP / Uang Gedung">DSP / Uang Gedung (Sisa: Rp {(selectedStudentForPay.tagihanDSP - selectedStudentForPay.terbayarDSP).toLocaleString('id-ID')})</option>
-                  <option value="Praktik & Ujian">Praktik &amp; Ujian (Sisa: Rp {(selectedStudentForPay.tagihanUjian - selectedStudentForPay.terbayarUjian).toLocaleString('id-ID')})</option>
+                  <option value="Syahriyah / SPP Bulanan">Syahriyah / SPP Bulanan (Sisa: Rp {selectedStudentForPay.sisaSyahriyah.toLocaleString('id-ID')})</option>
+                  <option value="Tunggakan Tahun Lalu">Tunggakan Tahun Lalu (Sisa: Rp {selectedStudentForPay.sisaTahunLalu.toLocaleString('id-ID')})</option>
+                  <option value="Daftar Ulang">Daftar Ulang (Sisa: Rp {selectedStudentForPay.sisaDaftarUlang.toLocaleString('id-ID')})</option>
+                  <option value="Tunggakan Lain-lain">Tunggakan Lain-lain (Sisa: Rp {selectedStudentForPay.sisaLainLain.toLocaleString('id-ID')})</option>
                   <option value="Lainnya">Lainnya / Titipan</option>
                 </select>
               </div>
 
               {/* Bulan Checkbox if SPP */}
-              {payKategori === 'SPP Bulanan' && (
+              {(payKategori === 'Syahriyah / SPP Bulanan' || payKategori === 'SPP Bulanan') && (
                 <div>
                   <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Pilih Bulan yang Dibayar:</label>
                   <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -1206,7 +1787,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                   type="text"
                   value={payCatatan}
                   onChange={(e) => setPayCatatan(e.target.value)}
-                  placeholder="Contoh: Lunas SPP Juli-Agustus, titipan orang tua"
+                  placeholder="Contoh: Pembayaran Syahriyah Juli-Agustus, titipan orang tua"
                   className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
                 />
               </div>
@@ -1215,13 +1796,13 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedStudentForPay(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold"
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">check</span>
                   <span>Simpan Pembayaran</span>
@@ -1232,7 +1813,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         </div>
       )}
 
-      {/* MODAL: CETAK KWITANSI PEMBAYARAN RESMI A4 */}
+      {/* 9. MODAL: CETAK KWITANSI PEMBAYARAN RESMI A4 */}
       {selectedReceiptItem && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white text-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-4 my-8">
@@ -1242,7 +1823,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                  className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">print</span>
                   <span>Cetak A4</span>
@@ -1250,7 +1831,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedReceiptItem(null)}
-                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -1259,7 +1840,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
             {/* Kwitansi Body (Format Kedinasan Kop SMA NU Kaplongan) */}
             <div className="border border-slate-300 p-6 rounded-xl space-y-4 bg-white print:border-none print:p-0">
-              {/* Kop Surat Resmi */}
               <div className="flex items-center gap-4 pb-3 border-b-4 border-double border-slate-900 text-center">
                 <img src="/logo-sma-nu.png?v=3" alt="Logo SMA NU" className="w-16 h-16 object-contain" />
                 <div className="flex-1">
@@ -1329,7 +1909,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         </div>
       )}
 
-      {/* MODAL: CETAK SURAT PEMBERITAHUAN TUNGGAKAN A4 */}
+      {/* 10. MODAL: CETAK SURAT PEMBERITAHUAN TUNGGAKAN A4 */}
       {selectedLetterItem && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white text-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-4 my-8">
@@ -1339,7 +1919,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                  className="px-3.5 py-1.5 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">print</span>
                   <span>Cetak A4</span>
@@ -1347,7 +1927,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedLetterItem(null)}
-                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer"
                 >
                   Tutup
                 </button>
@@ -1356,7 +1936,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
             {/* Surat Resmi A4 */}
             <div className="border border-slate-300 p-6 rounded-xl space-y-3 bg-white text-xs print:border-none print:p-0">
-              {/* Kop Kedinasan SMA NU Kaplongan */}
               <div className="flex items-center gap-4 pb-3 border-b-4 border-double border-slate-900 text-center">
                 <img src="/logo-sma-nu.png?v=3" alt="Logo SMA NU" className="w-16 h-16 object-contain" />
                 <div className="flex-1">
@@ -1368,7 +1947,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 </div>
               </div>
 
-              {/* Header Surat */}
               <div className="flex justify-between items-start pt-2">
                 <div>
                   <div>Nomor : 421.3/KEU-TGK/{new Date().getFullYear()}/SMA-NU</div>
@@ -1390,13 +1968,12 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               <p className="text-justify leading-relaxed">
                 <i>Assalamu’alaikum Warahmatullahi Wabarakatuh.</i>
                 <br />
-                Puji syukur ke hadirat Allah SWT atas limpahan rahmat dan karunia-Nya. Dalam rangka mendukung kelancaran kegiatan belajar mengajar serta tertib administrasi di SMA NU Kaplongan Tahun Ajaran 2026/2027, kami memberitahukan rincian kewajiban administrasi keuangan ananda yang belum terselesaikan sebagai berikut:
+                Puji syukur ke hadirat Allah SWT. Dalam rangka kelancaran belajar mengajar di SMA NU Kaplongan Tahun Ajaran 2026/2027, kami memberitahukan rincian kewajiban administrasi keuangan yang belum terselesaikan sebagai berikut:
               </p>
 
-              {/* Tabel Rincian Tunggakan */}
               <table className="w-full border-collapse border border-slate-400 my-2">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-700">
+                  <tr className="bg-slate-100 text-slate-700 font-bold">
                     <th className="border border-slate-400 p-1.5 text-center w-10">No</th>
                     <th className="border border-slate-400 p-1.5 text-left">Komponen Biaya</th>
                     <th className="border border-slate-400 p-1.5 text-left">Keterangan / Periode</th>
@@ -1404,37 +1981,49 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="border border-slate-400 p-1.5 text-center">1</td>
-                    <td className="border border-slate-400 p-1.5">SPP Bulanan</td>
-                    <td className="border border-slate-400 p-1.5">Bulan: {selectedLetterItem.bulanMenunggak.join(', ') || '-'}</td>
-                    <td className="border border-slate-400 p-1.5 text-right">
-                      Rp {(selectedLetterItem.totalTagihanSPP - selectedLetterItem.sppBulanan * (6 - selectedLetterItem.bulanMenunggak.length)).toLocaleString('id-ID')}
-                    </td>
-                  </tr>
-                  {selectedLetterItem.tagihanDSP > selectedLetterItem.terbayarDSP && (
+                  {selectedLetterItem.sisaTahunLalu > 0 && (
                     <tr>
-                      <td className="border border-slate-400 p-1.5 text-center">2</td>
-                      <td className="border border-slate-400 p-1.5">DSP / Uang Gedung</td>
-                      <td className="border border-slate-400 p-1.5">Kewajiban Awal Masuk</td>
-                      <td className="border border-slate-400 p-1.5 text-right">
-                        Rp {(selectedLetterItem.tagihanDSP - selectedLetterItem.terbayarDSP).toLocaleString('id-ID')}
+                      <td className="border border-slate-400 p-1.5 text-center">1</td>
+                      <td className="border border-slate-400 p-1.5">Tunggakan Tahun Lalu</td>
+                      <td className="border border-slate-400 p-1.5">Kewajiban Periode Sebelumnya</td>
+                      <td className="border border-slate-400 p-1.5 text-right font-mono">
+                        Rp {selectedLetterItem.sisaTahunLalu.toLocaleString('id-ID')}
                       </td>
                     </tr>
                   )}
-                  {selectedLetterItem.tagihanUjian > selectedLetterItem.terbayarUjian && (
+                  {selectedLetterItem.sisaDaftarUlang > 0 && (
+                    <tr>
+                      <td className="border border-slate-400 p-1.5 text-center">2</td>
+                      <td className="border border-slate-400 p-1.5">Daftar Ulang</td>
+                      <td className="border border-slate-400 p-1.5">Administrasi Awal Tahun Pelajaran</td>
+                      <td className="border border-slate-400 p-1.5 text-right font-mono">
+                        Rp {selectedLetterItem.sisaDaftarUlang.toLocaleString('id-ID')}
+                      </td>
+                    </tr>
+                  )}
+                  {selectedLetterItem.sisaSyahriyah > 0 && (
                     <tr>
                       <td className="border border-slate-400 p-1.5 text-center">3</td>
-                      <td className="border border-slate-400 p-1.5">Biaya Ujian &amp; Praktik</td>
-                      <td className="border border-slate-400 p-1.5">Semester Ganjil 2026/2027</td>
-                      <td className="border border-slate-400 p-1.5 text-right">
-                        Rp {(selectedLetterItem.tagihanUjian - selectedLetterItem.terbayarUjian).toLocaleString('id-ID')}
+                      <td className="border border-slate-400 p-1.5">Syahriyah / SPP Bulanan</td>
+                      <td className="border border-slate-400 p-1.5">Bulan: {selectedLetterItem.bulanMenunggak.join(', ') || '-'}</td>
+                      <td className="border border-slate-400 p-1.5 text-right font-mono">
+                        Rp {selectedLetterItem.sisaSyahriyah.toLocaleString('id-ID')}
+                      </td>
+                    </tr>
+                  )}
+                  {selectedLetterItem.sisaLainLain > 0 && (
+                    <tr>
+                      <td className="border border-slate-400 p-1.5 text-center">4</td>
+                      <td className="border border-slate-400 p-1.5">Tunggakan Lain-lain</td>
+                      <td className="border border-slate-400 p-1.5">Biaya Praktik, Infak &amp; Ujian SAS/TKA</td>
+                      <td className="border border-slate-400 p-1.5 text-right font-mono">
+                        Rp {selectedLetterItem.sisaLainLain.toLocaleString('id-ID')}
                       </td>
                     </tr>
                   )}
                   <tr className="bg-slate-100 font-bold">
                     <td colSpan={3} className="border border-slate-400 p-1.5 text-right">TOTAL SISA TUNGGAKAN:</td>
-                    <td className="border border-slate-400 p-1.5 text-right font-black text-rose-600">
+                    <td className="border border-slate-400 p-1.5 text-right font-black text-rose-600 font-mono">
                       Rp {selectedLetterItem.sisaTunggakan.toLocaleString('id-ID')}
                     </td>
                   </tr>
@@ -1443,17 +2032,16 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
               {selectedLetterItem.pipStatus === 'Penerima Aktif' && (
                 <div className="p-2 rounded bg-amber-50 border border-amber-300 text-[11px] text-amber-800">
-                  <b>Catatan Khusus Penerima PIP:</b> Ananda tercatat sebagai Penerima Aktif Program Indonesia Pintar (PIP BNI) sebesar <b>Rp {selectedLetterItem.nominalPip.toLocaleString('id-ID')}</b>. Pembayaran dapat diselesaikan saat pencairan kolektif bersama pihak sekolah.
+                  <b>Catatan Khusus Penerima PIP:</b> Ananda tercatat sebagai Penerima Aktif Program Indonesia Pintar (PIP BNI) sebesar <b>Rp {selectedLetterItem.nominalPip.toLocaleString('id-ID')}</b>. Pembayaran dapat diselesaikan saat pencairan dana kolektif.
                 </div>
               )}
 
               <p className="text-justify leading-relaxed">
-                Demikian surat pemberitahuan ini kami sampaikan. Pembayaran dapat dilakukan melalui kasir bendahara sekolah atau transfer ke rekening resmi Bank BNI SMA NU Kaplongan. Atas perhatian dan kerja sama Bapak/Ibu, kami ucapkan terima kasih.
+                Demikian surat pemberitahuan ini kami sampaikan. Pembayaran dapat dilakukan melalui kasir bendahara sekolah atau transfer ke rekening resmi Bank BNI SMA NU Kaplongan.
                 <br />
                 <i>Wassalamu’alaikum Warahmatullahi Wabarakatuh.</i>
               </p>
 
-              {/* Tanda Tangan */}
               <div className="pt-4 flex justify-between items-center text-center">
                 <div className="w-56">
                   <div>Mengetahui,</div>
@@ -1476,11 +2064,10 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         </div>
       )}
 
-      {/* 4. MODAL: SINKRONISASI & INTEGRASI APLIKASI BENDAHARA */}
-      {isSyncModalOpen && (
+      {/* 11. MODAL: SINKRONISASI & INTEGRASI APLIKASI BENDAHARA */}
+      {isSyncModalOpen && !isWaliKelas && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
           <div className="bg-surface-container-lowest dark:bg-slate-900 border border-surface-container dark:border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
             <div className="p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-xs">
@@ -1499,13 +2086,12 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsSyncModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
             </div>
 
-            {/* Modal Navigation Tabs */}
             <div className="flex items-center border-b border-surface-container dark:border-slate-800 px-4 bg-surface-container-low/50 dark:bg-slate-800/40 shrink-0 overflow-x-auto">
               <button
                 type="button"
@@ -1513,7 +2099,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
                   syncModalTab === 'status'
                     ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">cloud_sync</span>
@@ -1526,7 +2112,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
                   syncModalTab === 'ekspor'
                     ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">file_download</span>
@@ -1539,7 +2125,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
                   syncModalTab === 'impor'
                     ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">file_upload</span>
@@ -1552,7 +2138,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
                   syncModalTab === 'tarif'
                     ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">tune</span>
@@ -1560,12 +2146,10 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               </button>
             </div>
 
-            {/* Modal Body Content */}
             <div className="p-6 overflow-y-auto space-y-5 flex-1">
               {/* TAB 1: STATUS & CLOUD SYNC */}
               {syncModalTab === 'status' && (
                 <div className="space-y-4">
-                  {/* Architecture Diagram */}
                   <div className="p-4 rounded-2xl bg-surface-container-low dark:bg-slate-800/60 border border-surface-container dark:border-slate-700/60 flex items-center justify-around gap-2 text-center text-xs">
                     <div className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-800 shadow-2xs border border-slate-200 dark:border-slate-700 flex-1">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/15 text-blue-600 dark:text-sky-300 flex items-center justify-center font-bold">
@@ -1602,31 +2186,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Metrik Integritas Data */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Siswa Terhubung</span>
-                      <div className="text-lg font-black text-slate-800 dark:text-slate-100 mt-0.5">{siswaList.length} Siswa</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Penerima PIP BNI</span>
-                      <div className="text-lg font-black text-blue-600 dark:text-sky-400 mt-0.5">
-                        {pembayaranList.filter(p => p.pipStatus === 'Penerima Aktif').length} Siswa
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Kwitansi Kas Masuk</span>
-                      <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{transaksiList.length} Kwitansi</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Total Piutang SPP</span>
-                      <div className="text-lg font-black text-rose-600 dark:text-rose-400 mt-0.5 truncate" title={`Rp ${summaryMetrics.totalTunggakanAll.toLocaleString('id-ID')}`}>
-                        Rp {(summaryMetrics.totalTunggakanAll / 1000000).toFixed(1)} Jt
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Manual Sync Trigger Box */}
                   <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between gap-3">
                     <div>
                       <h5 className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
@@ -1652,22 +2211,21 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 </div>
               )}
 
-              {/* TAB 2: EKSPOR FORMAT BKU BENDAHARA */}
+              {/* TAB 2: EKSPOR BKU */}
               {syncModalTab === 'ekspor' && (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Unduh berkas transaksi dan tunggakan yang diformat sesuai standar pelaporan bendahara sekolah untuk keperluan audit, BKU, komite, atau diimpor ke aplikasi bendahara lainnya:
+                    Unduh berkas transaksi dan tunggakan yang diformat sesuai standar pelaporan bendahara sekolah:
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* BKU CSV */}
-                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-colors flex flex-col justify-between">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-emerald-600 text-xl">account_balance</span>
                           <h5 className="font-bold text-xs text-slate-800 dark:text-slate-100">Buku Kas Umum (BKU)</h5>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                           Format resmi buku kas umum bendahara dengan kolom debit, kredit, saldo berjalan, no kwitansi, dan nama siswa.
                         </p>
                       </div>
@@ -1681,14 +2239,13 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                       </button>
                     </div>
 
-                    {/* Rekap Piutang & SPP CSV */}
-                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 transition-colors flex flex-col justify-between">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-blue-600 text-xl">table_chart</span>
                           <h5 className="font-bold text-xs text-slate-800 dark:text-slate-100">Rekap Tunggakan Siswa</h5>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                           Daftar piutang per siswa, rombel, bulan menunggak, dan rincian alokasi bantuan dana PIP SimPel BNI.
                         </p>
                       </div>
@@ -1702,8 +2259,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                       </button>
                     </div>
 
-                    {/* Backup JSON Database */}
-                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-500 transition-colors sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-purple-600 text-xl">database</span>
@@ -1735,7 +2291,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                       <span>Format Berkas CSV yang Didukung:</span>
                     </div>
                     <p className="leading-relaxed">
-                      Sistem mendukung berkas CSV hasil ekspor dari aplikasi bendahara lain atau Excel pembukuan kasir. Baris pertama (header) harus memuat kolom:
+                      Baris pertama (header) harus memuat kolom:
                       <br />
                       <code className="font-mono bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[11px] mt-1 inline-block border border-sky-300 dark:border-sky-700">
                         NISN, Nama, Tanggal, Kategori, Jumlah, Metode, Keterangan
@@ -1774,13 +2330,13 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               {syncModalTab === 'tarif' && (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Atur tarif tagihan operasional standar SMA NU Kaplongan. Penyesuaian tarif ini akan diterapkan ke tagihan siswa secara otomatis:
+                    Atur tarif tagihan operasional standar SMA NU Kaplongan:
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1">
-                        SPP Bulanan (Per Bulan)
+                        Syahriyah / SPP Bulanan
                       </label>
                       <div className="relative mt-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
@@ -1789,7 +2345,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                           value={tarifSpp}
                           onChange={(e) => setTarifSpp(Number(e.target.value) || 0)}
                           step={10000}
-                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
                         />
                       </div>
                       <span className="text-[10px] text-slate-400 mt-1 block">Default: Rp 150.000 / bulan</span>
@@ -1797,36 +2353,36 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
                     <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1">
-                        DSP / Uang Gedung (Fase E)
+                        Daftar Ulang
                       </label>
                       <div className="relative mt-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
                         <input
                           type="number"
-                          value={tarifDsp}
-                          onChange={(e) => setTarifDsp(Number(e.target.value) || 0)}
-                          step={50000}
-                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          value={tarifDaftarUlang}
+                          onChange={(e) => setTarifDaftarUlang(Number(e.target.value) || 0)}
+                          step={25000}
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 mt-1 block">Khusus Kelas X (1 tahun)</span>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Default: Rp 450.000 / tahun</span>
                     </div>
 
                     <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1">
-                        Praktik &amp; Ujian / TKA
+                        Tunggakan Lain-lain
                       </label>
                       <div className="relative mt-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
                         <input
                           type="number"
-                          value={tarifUjian}
-                          onChange={(e) => setTarifUjian(Number(e.target.value) || 0)}
+                          value={tarifLainLain}
+                          onChange={(e) => setTarifLainLain(Number(e.target.value) || 0)}
                           step={25000}
-                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 mt-1 block">TKA Pusmendik &amp; SAS</span>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Praktik, Infak &amp; Ujian</span>
                     </div>
                   </div>
 
@@ -1844,7 +2400,6 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="p-4 bg-surface-container-low border-t border-surface-container dark:border-slate-800 flex items-center justify-between text-xs shrink-0">
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px]">
                 <span className="material-symbols-outlined text-sm text-emerald-600">verified</span>

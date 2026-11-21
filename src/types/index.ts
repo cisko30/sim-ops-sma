@@ -78,4 +78,6 @@ export interface SchoolInfo {
   serverInfo?: string;
 }
 
+export type UserRole = 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara' | 'Wali Kelas';
+
 

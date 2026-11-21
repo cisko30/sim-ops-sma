@@ -4,7 +4,7 @@ import { INITIAL_JOURNALS, CATEGORY_COLORS } from '../../data/mockJournals';
 import { AddActivityModal } from './AddActivityModal';
 
 interface JournalHistoryViewProps {
-  activeRole: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara';
+  activeRole: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara' | 'Wali Kelas';
   journals?: DailyJournal[];
   initialSelectedDate?: string;
   onUpdateJournals?: (journals: DailyJournal[]) => void;

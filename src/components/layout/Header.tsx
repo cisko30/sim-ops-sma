@@ -57,8 +57,8 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   onOpenJurnalModal?: () => void;
   schoolInfo?: SchoolInfo;
-  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara';
-  onChangeRole?: (role: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara') => void;
+  activeRole?: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara' | 'Wali Kelas';
+  onChangeRole?: (role: 'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara' | 'Wali Kelas') => void;
   onSearch?: (query: string) => void;
   onNavigate?: (path: string) => void;
   onOpenResiduModal?: () => void;
@@ -237,14 +237,14 @@ export const Header: React.FC<HeaderProps> = ({
         {onChangeRole && (
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-low dark:bg-slate-800 border border-surface-container dark:border-slate-700 text-xs">
             <span className="material-symbols-outlined text-sm text-primary dark:text-sky-400">
-              {activeRole === 'Bendahara' ? 'payments' : activeRole === 'Kepsek' ? 'shield_person' : activeRole === 'Kurikulum' ? 'menu_book' : 'badge'}
+              {activeRole === 'Bendahara' ? 'payments' : activeRole === 'Wali Kelas' ? 'assignment_ind' : activeRole === 'Kepsek' ? 'shield_person' : activeRole === 'Kurikulum' ? 'menu_book' : 'badge'}
             </span>
             <select
               value={activeRole}
               onChange={(e) => {
                 const nextRole = e.target.value as any;
                 onChangeRole(nextRole);
-                if (nextRole === 'Bendahara') {
+                if (nextRole === 'Bendahara' || nextRole === 'Wali Kelas') {
                   onNavigate?.('tunggakan-dan-spp');
                 }
               }}
@@ -253,6 +253,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <option value="OPS" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">OPS: Operator</option>
               <option value="Bendahara" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Bendahara Sekolah</option>
+              <option value="Wali Kelas" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Wali Kelas (Cek Tunggakan)</option>
               <option value="Kurikulum" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Kurikulum</option>
               <option value="Kepsek" className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100">Kepala Sekolah</option>
             </select>
@@ -465,7 +466,7 @@ export const Header: React.FC<HeaderProps> = ({
               {school.operatorName}
             </span>
             <span className="font-label-sm text-[11px] text-on-surface-variant dark:text-slate-400 leading-tight">
-              {activeRole === 'Bendahara' ? 'Bendahara Sekolah' : activeRole === 'Kepsek' ? 'Kepala Sekolah' : activeRole === 'Kurikulum' ? 'Wakasek Kurikulum' : (school.operatorRole || 'Koordinator Operator Sekolah')}
+              {activeRole === 'Bendahara' ? 'Bendahara Sekolah' : activeRole === 'Wali Kelas' ? 'Wali Kelas (Monitoring)' : activeRole === 'Kepsek' ? 'Kepala Sekolah' : activeRole === 'Kurikulum' ? 'Wakasek Kurikulum' : (school.operatorRole || 'Koordinator Operator Sekolah')}
             </span>
           </div>
         </div>

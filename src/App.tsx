@@ -221,7 +221,7 @@ export const App: React.FC = () => {
   }, [activities]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeRole, setActiveRole] = useState<'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara'>('OPS');
+  const [activeRole, setActiveRole] = useState<'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara' | 'Wali Kelas'>('OPS');
 
   // Keuangan & Bendahara State (Disinkronkan dengan Cloud & LocalStorage)
   const [transaksiList, setTransaksiList] = useState<TransaksiKwitansi[]>(() => {
@@ -1469,8 +1469,10 @@ export const App: React.FC = () => {
                 subType={currentPath as any}
                 schoolInfo={schoolInfo}
                 siswaList={siswaList}
+                rombelList={rombelList}
                 transaksiList={transaksiList}
                 paymentOverrides={paymentOverrides}
+                activeRole={activeRole}
                 onUpdateTransaksi={(newList) => {
                   setTransaksiList(newList);
                   try {
