@@ -70,12 +70,14 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Check if database was explicitly cleared by user
+  // Check if database was explicitly cleared by user or clean by default
   const isDBCleared = () => {
     try {
-      return localStorage.getItem('simops_db_cleared') === 'true';
+      const val = localStorage.getItem('simops_db_cleared');
+      if (val === 'false') return false;
+      return true;
     } catch {
-      return false;
+      return true;
     }
   };
 
@@ -88,7 +90,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error("Failed to load cached journals", e);
     }
-    return INITIAL_JOURNALS;
+    return [];
   });
 
   const handleUpdateJournals = (updater: React.SetStateAction<DailyJournal[]>) => {
@@ -131,7 +133,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-    return MOCK_GTK_LIST;
+    return [];
   });
 
   useEffect(() => {
@@ -150,7 +152,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-    return MOCK_SISWA_LIST;
+    return [];
   });
 
   useEffect(() => {
@@ -169,7 +171,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-    return MOCK_ROMBEL_LIST;
+    return [];
   });
 
   useEffect(() => {
@@ -188,7 +190,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-    return DEFAULT_MAPEL_LIST;
+    return [];
   });
 
   useEffect(() => {
@@ -207,7 +209,7 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error(e);
     }
-    return ACTIVITIES;
+    return [];
   });
 
   useEffect(() => {
@@ -565,7 +567,7 @@ export const App: React.FC = () => {
   };
 
   const handleResetFactoryDatabase = async () => {
-    localStorage.removeItem('simops_db_cleared');
+    localStorage.setItem('simops_db_cleared', 'false');
     setGtkList(MOCK_GTK_LIST);
     setSiswaList(MOCK_SISWA_LIST);
     setRombelList(MOCK_ROMBEL_LIST);
