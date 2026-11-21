@@ -7,6 +7,14 @@ interface BendaharaKeuanganViewProps {
   subType: 'tunggakan-dan-spp' | 'riwayat-kwitansi-bayar' | 'rekap-surat-tunggakan';
   schoolInfo?: SchoolInfo;
   siswaList?: SiswaItem[];
+  transaksiList?: TransaksiKwitansi[];
+  paymentOverrides?: Record<string, Partial<PembayaranItem>>;
+  onUpdateTransaksi?: (items: TransaksiKwitansi[]) => void;
+  onUpdateOverrides?: (overrides: Record<string, Partial<PembayaranItem>>) => void;
+  isCloudSyncing?: boolean;
+  cloudSyncedAt?: string | null;
+  syncEngine?: 'supabase' | 'kv' | 'local';
+  onManualSync?: () => void;
   onShowToast: (msg: string) => void;
   onNavigateToSiswa?: () => void;
   onAddActivity?: (title: string, desc: string) => void;
@@ -32,12 +40,20 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
   subType,
   schoolInfo,
   siswaList = [],
+  transaksiList: propTransaksiList,
+  paymentOverrides: propPaymentOverrides,
+  onUpdateTransaksi,
+  onUpdateOverrides,
+  isCloudSyncing = false,
+  cloudSyncedAt,
+  syncEngine = 'local',
+  onManualSync,
   onShowToast,
   onNavigateToSiswa,
   onAddActivity
 }) => {
-  // Stored state for payments and transactions
-  const [transaksiList, setTransaksiList] = useState<TransaksiKwitansi[]>(() => {
+  // Stored state for payments and transactions (with prop fallback)
+  const [localTransaksiList, setLocalTransaksiList] = useState<TransaksiKwitansi[]>(() => {
     try {
       const saved = localStorage.getItem('simops_keuangan_transaksi');
       if (saved) return JSON.parse(saved);
@@ -47,17 +63,23 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     return [];
   });
 
+  const transaksiList = propTransaksiList !== undefined ? propTransaksiList : localTransaksiList;
+
   const saveTransaksi = (items: TransaksiKwitansi[]) => {
-    setTransaksiList(items);
-    try {
-      localStorage.setItem('simops_keuangan_transaksi', JSON.stringify(items));
-    } catch (e) {
-      console.error(e);
+    if (onUpdateTransaksi) {
+      onUpdateTransaksi(items);
+    } else {
+      setLocalTransaksiList(items);
+      try {
+        localStorage.setItem('simops_keuangan_transaksi', JSON.stringify(items));
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
   // Custom adjustments for payments (e.g. override payment records)
-  const [paymentOverrides, setPaymentOverrides] = useState<Record<string, Partial<PembayaranItem>>>(() => {
+  const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<PembayaranItem>>>(() => {
     try {
       const saved = localStorage.getItem('simops_keuangan_overrides');
       if (saved) return JSON.parse(saved);
@@ -67,12 +89,18 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     return {};
   });
 
+  const paymentOverrides = propPaymentOverrides !== undefined ? propPaymentOverrides : localOverrides;
+
   const saveOverrides = (overrides: Record<string, Partial<PembayaranItem>>) => {
-    setPaymentOverrides(overrides);
-    try {
-      localStorage.setItem('simops_keuangan_overrides', JSON.stringify(overrides));
-    } catch (e) {
-      console.error(e);
+    if (onUpdateOverrides) {
+      onUpdateOverrides(overrides);
+    } else {
+      setLocalOverrides(overrides);
+      try {
+        localStorage.setItem('simops_keuangan_overrides', JSON.stringify(overrides));
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -262,6 +290,230 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
     setSelectedStudentForPay(null);
   };
 
+  // Integration & Sync Modal State
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncModalTab, setSyncModalTab] = useState<'status' | 'ekspor' | 'impor' | 'tarif'>('status');
+
+  // Tarif Standar Sekolah
+  const [tarifSpp, setTarifSpp] = useState<number>(150000);
+  const [tarifDsp, setTarifDsp] = useState<number>(1200000);
+  const [tarifUjian, setTarifUjian] = useState<number>(350000);
+
+  // Manual Sync with Bendahara & Cloud
+  const handleSyncWithBendaharaApp = () => {
+    if (onManualSync) {
+      onManualSync();
+    }
+    if (onAddActivity) {
+      onAddActivity(
+        "Sinkronisasi Aplikasi Bendahara",
+        `Sinkronisasi kasir & tunggakan ${siswaList.length} siswa dengan server cloud berhasil.`
+      );
+    }
+    onShowToast("Sinkronisasi dengan server cloud & database operator berhasil dijalankan!");
+  };
+
+  // Export to BKU (Buku Kas Umum) Standar Bendahara Sekolah CSV
+  const handleExportBKU = () => {
+    if (transaksiList.length === 0) {
+      onShowToast("Belum ada riwayat transaksi kasir untuk diekspor ke Buku Kas Umum (BKU).");
+      return;
+    }
+    const headers = [
+      'No',
+      'Tanggal Transaksi',
+      'No. Bukti / Kwitansi',
+      'Kategori Pos',
+      'Uraian Transaksi',
+      'Penerimaan / Masuk (Rp)',
+      'Pengeluaran / Keluar (Rp)',
+      'Saldo Berjalan (Rp)',
+      'Nama Siswa',
+      'NISN',
+      'Rombel',
+      'Metode Bayar',
+      'Petugas Kasir'
+    ];
+
+    let runningSaldo = 0;
+    // Urutkan dari transaksi terlama ke terbaru untuk saldo kas berjalan
+    const sortedTx = [...transaksiList].sort((a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime());
+
+    const rows = sortedTx.map((tx, idx) => {
+      runningSaldo += tx.jumlah;
+      return [
+        idx + 1,
+        `"${tx.tanggal}"`,
+        `"${tx.nomorKwitansi}"`,
+        `"${tx.kategori}"`,
+        `"${tx.keterangan || 'Pembayaran ' + tx.kategori}"`,
+        tx.jumlah,
+        0,
+        runningSaldo,
+        `"${tx.namaSiswa}"`,
+        `'${tx.nisn}`,
+        `"${tx.rombel}"`,
+        `"${tx.metode}"`,
+        `"${tx.penerima}"`
+      ];
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `BKU_Buku_Kas_Umum_SMA_NU_Kaplongan_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    onShowToast("Buku Kas Umum (BKU) Standar Bendahara berhasil diunduh.");
+  };
+
+  // Export Complete Backup JSON
+  const handleExportJSON = () => {
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      schoolName: schoolInfo?.schoolName || 'SMA NU Kaplongan',
+      npsn: schoolInfo?.npsn || '20216007',
+      totalSiswa: siswaList.length,
+      totalTransaksi: transaksiList.length,
+      totalKasMasuk: summaryMetrics.totalTerbayarAll,
+      totalPiutang: summaryMetrics.totalTunggakanAll,
+      transaksiList,
+      paymentOverrides
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Database_Bendahara_SMA_NU_Kaplongan_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onShowToast("Cadangan database bendahara (JSON) berhasil diunduh.");
+  };
+
+  // Import CSV from External Bendahara App
+  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        if (!text) return;
+
+        const lines = text.split(/\r\n|\n/).filter(line => line.trim().length > 0);
+        if (lines.length <= 1) {
+          onShowToast("File CSV kosong atau tidak memiliki data baris.");
+          return;
+        }
+
+        const headerLine = lines[0].toLowerCase();
+        const headers = headerLine.split(',').map(h => h.replace(/["']/g, '').trim());
+
+        const nisnIdx = headers.findIndex(h => h.includes('nisn'));
+        const namaIdx = headers.findIndex(h => h.includes('nama'));
+        const jumlahIdx = headers.findIndex(h => h.includes('jumlah') || h.includes('nominal') || h.includes('bayar') || h.includes('masuk'));
+        const kategoriIdx = headers.findIndex(h => h.includes('kategori') || h.includes('pos'));
+        const tanggalIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl'));
+        const metodeIdx = headers.findIndex(h => h.includes('metode'));
+        const ketIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('uraian'));
+
+        let importedCount = 0;
+        const newTransactions: TransaksiKwitansi[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.replace(/["']/g, '').trim());
+          if (cols.length < 2) continue;
+
+          const rawNisn = nisnIdx !== -1 ? cols[nisnIdx].replace(/['"]+/g, '') : '';
+          const rawNama = namaIdx !== -1 ? cols[namaIdx] : '';
+          const rawJumlah = jumlahIdx !== -1 ? parseInt(cols[jumlahIdx].replace(/[^0-9]/g, ''), 10) : 150000;
+          const rawKategori = kategoriIdx !== -1 ? cols[kategoriIdx] : 'SPP Bulanan';
+          const rawTanggal = tanggalIdx !== -1 && cols[tanggalIdx] ? cols[tanggalIdx] : new Date().toISOString().slice(0, 10);
+          const rawMetode = metodeIdx !== -1 && cols[metodeIdx] ? cols[metodeIdx] : 'Tunai Kasir';
+          const rawKet = ketIdx !== -1 && cols[ketIdx] ? cols[ketIdx] : `Import dari Aplikasi Bendahara`;
+
+          if (isNaN(rawJumlah) || rawJumlah <= 0) continue;
+
+          // Cari siswa yang cocok di siswaList
+          const matchedSiswa = siswaList.find(s => 
+            (rawNisn && s.nisn === rawNisn) || 
+            (rawNama && s.nama.toLowerCase().includes(rawNama.toLowerCase()))
+          );
+
+          const studentId = matchedSiswa ? matchedSiswa.id : `ext-${Date.now()}-${i}`;
+          const studentName = matchedSiswa ? matchedSiswa.nama : (rawNama || 'Siswa Terdaftar');
+          const studentNisn = matchedSiswa ? matchedSiswa.nisn : (rawNisn || '0000000000');
+          const studentRombel = matchedSiswa ? matchedSiswa.rombel : 'Kelas X-A';
+
+          const validKategori = ['SPP Bulanan', 'DSP / Uang Gedung', 'Praktik & Ujian', 'Seragam & Buku', 'Lainnya'].includes(rawKategori)
+            ? (rawKategori as any)
+            : 'SPP Bulanan';
+
+          const validMetode = ['Tunai Kasir', 'Transfer Bank BNI', 'Alokasi Dana PIP'].includes(rawMetode)
+            ? (rawMetode as any)
+            : 'Tunai Kasir';
+
+          const receiptNo = `KW/IMP/${new Date().getFullYear()}/${String(Date.now()).slice(-4)}${i}`;
+
+          newTransactions.push({
+            id: `tx-imp-${Date.now()}-${i}`,
+            nomorKwitansi: receiptNo,
+            tanggal: rawTanggal,
+            siswaId: studentId,
+            namaSiswa: studentName,
+            nisn: studentNisn,
+            rombel: studentRombel,
+            kategori: validKategori,
+            jumlah: rawJumlah,
+            metode: validMetode,
+            keterangan: rawKet,
+            penerima: schoolInfo?.operatorName || 'Bendahara SMA NU Kaplongan'
+          });
+
+          importedCount++;
+        }
+
+        if (importedCount > 0) {
+          saveTransaksi([...newTransactions, ...transaksiList]);
+          if (onAddActivity) {
+            onAddActivity(
+              "Impor Berkas Aplikasi Bendahara",
+              `Berhasil mengimpor ${importedCount} transaksi pembayaran dari berkas luar.`
+            );
+          }
+          onShowToast(`Berhasil mengimpor ${importedCount} transaksi pembayaran dari aplikasi bendahara!`);
+        } else {
+          onShowToast("Tidak ada data transaksi yang berhasil diproses dari format file ini.");
+        }
+      } catch (err: any) {
+        onShowToast(`Gagal membaca berkas CSV: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
+  // Terapkan Tarif Global ke Seluruh Siswa
+  const handleApplyGlobalTarif = () => {
+    const newOverrides: Record<string, Partial<PembayaranItem>> = { ...paymentOverrides };
+    siswaList.forEach(s => {
+      const prev = newOverrides[s.id] || {};
+      newOverrides[s.id] = {
+        ...prev,
+        sppBulanan: tarifSpp,
+        tagihanDSP: s.rombel.includes('X-') ? tarifDsp : 0,
+        tagihanUjian: tarifUjian
+      };
+    });
+    saveOverrides(newOverrides);
+    onShowToast("Tarif standar SPP, DSP, dan Ujian berhasil diterapkan ke seluruh peserta didik!");
+  };
+
   // Export to CSV
   const handleExportCSV = () => {
     if (pembayaranList.length === 0) {
@@ -295,6 +547,59 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Synchronization & Integration with Bendahara Application Bar */}
+      <div className="no-print print:hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-indigo-500/10 border border-emerald-500/20 dark:border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm shrink-0">
+            <span className="material-symbols-outlined text-xl">sync_alt</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                Sinkronisasi Aplikasi Bendahara &amp; Operator Dapodik
+              </h4>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                syncEngine === 'supabase'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>{syncEngine === 'supabase' ? 'Supabase Cloud PostgreSQL' : 'Cloud Server Awan'}</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+              Terhubung dengan <b>{siswaList.length} Siswa</b> Dapodik • <b>{transaksiList.length} Kwitansi</b> tercatat • Terakhir sinkron: {cloudSyncedAt ? cloudSyncedAt : 'Realtime'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleSyncWithBendaharaApp}
+            disabled={isCloudSyncing}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+            title="Sinkronkan data kasir bendahara dengan database cloud & operator"
+          >
+            <span className={`material-symbols-outlined text-base ${isCloudSyncing ? 'animate-spin' : ''}`}>
+              sync
+            </span>
+            <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Singkronkan Sekarang'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSyncModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+            title="Buka panel integrasi aplikasi bendahara (ekspor BKU, impor tagihan, konfigurasi tarif)"
+          >
+            <span className="material-symbols-outlined text-base text-primary">
+              hub
+            </span>
+            <span>Integrasi &amp; Ekspor BKU</span>
+          </button>
+        </div>
+      </div>
       {/* 1. VIEW TAB: TUNGGAKAN DAN SPP */}
       {subType === 'tunggakan-dan-spp' && (
         <>
@@ -1166,6 +1471,393 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                   <div className="text-[10px]">Lembaga Pendidikan Ma'arif NU</div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. MODAL: SINKRONISASI & INTEGRASI APLIKASI BENDAHARA */}
+      {isSyncModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+          <div className="bg-surface-container-lowest dark:bg-slate-900 border border-surface-container dark:border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-xs">
+                  <span className="material-symbols-outlined text-2xl text-white">hub</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base leading-tight">
+                    Integrasi &amp; Sinkronisasi Aplikasi Bendahara
+                  </h3>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Sinkronisasi data kasir, kwitansi &amp; tunggakan dengan Operator Dapodik dan Server Cloud
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div className="flex items-center border-b border-surface-container dark:border-slate-800 px-4 bg-surface-container-low/50 dark:bg-slate-800/40 shrink-0 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setSyncModalTab('status')}
+                className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                  syncModalTab === 'status'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">cloud_sync</span>
+                <span>Status &amp; Cloud Sync</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSyncModalTab('ekspor')}
+                className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                  syncModalTab === 'ekspor'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">file_download</span>
+                <span>Ekspor Format BKU Bendahara</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSyncModalTab('impor')}
+                className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                  syncModalTab === 'impor'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">file_upload</span>
+                <span>Impor File Transaksi Luar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSyncModalTab('tarif')}
+                className={`py-3 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all shrink-0 cursor-pointer ${
+                  syncModalTab === 'tarif'
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">tune</span>
+                <span>Tarif Standar Sekolah</span>
+              </button>
+            </div>
+
+            {/* Modal Body Content */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* TAB 1: STATUS & CLOUD SYNC */}
+              {syncModalTab === 'status' && (
+                <div className="space-y-4">
+                  {/* Architecture Diagram */}
+                  <div className="p-4 rounded-2xl bg-surface-container-low dark:bg-slate-800/60 border border-surface-container dark:border-slate-700/60 flex items-center justify-around gap-2 text-center text-xs">
+                    <div className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-800 shadow-2xs border border-slate-200 dark:border-slate-700 flex-1">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/15 text-blue-600 dark:text-sky-300 flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-lg">school</span>
+                      </div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Operator Dapodik</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{siswaList.length} Siswa Terdaftar</span>
+                    </div>
+
+                    <div className="flex flex-col items-center text-slate-400">
+                      <span className="material-symbols-outlined text-lg animate-pulse">sync_alt</span>
+                      <span className="text-[9px] font-mono">Realtime</span>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-800 shadow-2xs border border-slate-200 dark:border-slate-700 flex-1">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-lg">database</span>
+                      </div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Database Cloud</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{syncEngine === 'supabase' ? 'Supabase PG' : 'Cloud Server'}</span>
+                    </div>
+
+                    <div className="flex flex-col items-center text-slate-400">
+                      <span className="material-symbols-outlined text-lg animate-pulse">sync_alt</span>
+                      <span className="text-[9px] font-mono">Bi-Direction</span>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-800 shadow-2xs border border-slate-200 dark:border-slate-700 flex-1">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-lg">payments</span>
+                      </div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-[11px]">Aplikasi Bendahara</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{transaksiList.length} Kwitansi Kasir</span>
+                    </div>
+                  </div>
+
+                  {/* Metrik Integritas Data */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Siswa Terhubung</span>
+                      <div className="text-lg font-black text-slate-800 dark:text-slate-100 mt-0.5">{siswaList.length} Siswa</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Penerima PIP BNI</span>
+                      <div className="text-lg font-black text-blue-600 dark:text-sky-400 mt-0.5">
+                        {pembayaranList.filter(p => p.pipStatus === 'Penerima Aktif').length} Siswa
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Kwitansi Kas Masuk</span>
+                      <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{transaksiList.length} Kwitansi</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Total Piutang SPP</span>
+                      <div className="text-lg font-black text-rose-600 dark:text-rose-400 mt-0.5 truncate" title={`Rp ${summaryMetrics.totalTunggakanAll.toLocaleString('id-ID')}`}>
+                        Rp {(summaryMetrics.totalTunggakanAll / 1000000).toFixed(1)} Jt
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manual Sync Trigger Box */}
+                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center justify-between gap-3">
+                    <div>
+                      <h5 className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
+                        Sinkronisasi Langsung ke Cloud Database
+                      </h5>
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                        Tarik perubahan data master siswa terbaru dari Operator dan kirim seluruh rekaman kwitansi bendahara.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSyncWithBendaharaApp}
+                      disabled={isCloudSyncing}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0 disabled:opacity-60 cursor-pointer"
+                    >
+                      <span className={`material-symbols-outlined text-base ${isCloudSyncing ? 'animate-spin' : ''}`}>
+                        sync
+                      </span>
+                      <span>{isCloudSyncing ? 'Sinkron...' : 'Singkronkan Sekarang'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: EKSPOR FORMAT BKU BENDAHARA */}
+              {syncModalTab === 'ekspor' && (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Unduh berkas transaksi dan tunggakan yang diformat sesuai standar pelaporan bendahara sekolah untuk keperluan audit, BKU, komite, atau diimpor ke aplikasi bendahara lainnya:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* BKU CSV */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-colors flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-emerald-600 text-xl">account_balance</span>
+                          <h5 className="font-bold text-xs text-slate-800 dark:text-slate-100">Buku Kas Umum (BKU)</h5>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          Format resmi buku kas umum bendahara dengan kolom debit, kredit, saldo berjalan, no kwitansi, dan nama siswa.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportBKU}
+                        className="mt-4 w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">download</span>
+                        <span>Unduh BKU (.csv)</span>
+                      </button>
+                    </div>
+
+                    {/* Rekap Piutang & SPP CSV */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 transition-colors flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-blue-600 text-xl">table_chart</span>
+                          <h5 className="font-bold text-xs text-slate-800 dark:text-slate-100">Rekap Tunggakan Siswa</h5>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          Daftar piutang per siswa, rombel, bulan menunggak, dan rincian alokasi bantuan dana PIP SimPel BNI.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportCSV}
+                        className="mt-4 w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">download</span>
+                        <span>Unduh Rekap Tunggakan (.csv)</span>
+                      </button>
+                    </div>
+
+                    {/* Backup JSON Database */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-500 transition-colors sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-purple-600 text-xl">database</span>
+                          <h5 className="font-bold text-xs text-slate-800 dark:text-slate-100">Cadangan Penuh Bendahara (JSON)</h5>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          Seluruh data transaksi kwitansi dan penyesuaian tagihan dalam format JSON terenkapsulasi.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportJSON}
+                        className="py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">save_alt</span>
+                        <span>Cadangkan Database</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: IMPOR DARI APLIKASI BENDAHARA */}
+              {syncModalTab === 'impor' && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/40 text-xs text-sky-800 dark:text-sky-200">
+                    <div className="font-bold flex items-center gap-1.5 mb-1">
+                      <span className="material-symbols-outlined text-base">info</span>
+                      <span>Format Berkas CSV yang Didukung:</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      Sistem mendukung berkas CSV hasil ekspor dari aplikasi bendahara lain atau Excel pembukuan kasir. Baris pertama (header) harus memuat kolom:
+                      <br />
+                      <code className="font-mono bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[11px] mt-1 inline-block border border-sky-300 dark:border-sky-700">
+                        NISN, Nama, Tanggal, Kategori, Jumlah, Metode, Keterangan
+                      </code>
+                    </p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-center flex flex-col items-center justify-center gap-3 bg-slate-50/50 dark:bg-slate-800/30">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-2xl">upload_file</span>
+                    </div>
+                    <div>
+                      <h5 className="font-bold text-sm text-slate-800 dark:text-slate-100">
+                        Pilih Berkas CSV Data Pembayaran Bendahara
+                      </h5>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Sistem akan otomatis mencocokkan NISN/Nama siswa ke Dapodik dan mencatat transaksi kasir.
+                      </p>
+                    </div>
+
+                    <label className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-sm transition-all active:scale-95">
+                      <span className="material-symbols-outlined text-base">file_open</span>
+                      <span>Unggah File CSV (.csv)</span>
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        onChange={handleImportCSV}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: KONFIGURASI TARIF SEKOLAH */}
+              {syncModalTab === 'tarif' && (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Atur tarif tagihan operasional standar SMA NU Kaplongan. Penyesuaian tarif ini akan diterapkan ke tagihan siswa secara otomatis:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1">
+                        SPP Bulanan (Per Bulan)
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                        <input
+                          type="number"
+                          value={tarifSpp}
+                          onChange={(e) => setTarifSpp(Number(e.target.value) || 0)}
+                          step={10000}
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Default: Rp 150.000 / bulan</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1">
+                        DSP / Uang Gedung (Fase E)
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                        <input
+                          type="number"
+                          value={tarifDsp}
+                          onChange={(e) => setTarifDsp(Number(e.target.value) || 0)}
+                          step={50000}
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">Khusus Kelas X (1 tahun)</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1">
+                        Praktik &amp; Ujian / TKA
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                        <input
+                          type="number"
+                          value={tarifUjian}
+                          onChange={(e) => setTarifUjian(Number(e.target.value) || 0)}
+                          step={25000}
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">TKA Pusmendik &amp; SAS</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleApplyGlobalTarif}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">check_circle</span>
+                      <span>Terapkan Tarif Baru ke Seluruh Siswa</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-surface-container-low border-t border-surface-container dark:border-slate-800 flex items-center justify-between text-xs shrink-0">
+              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px]">
+                <span className="material-symbols-outlined text-sm text-emerald-600">verified</span>
+                <span>Standar LP Ma'arif NU SMA NU Kaplongan</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>

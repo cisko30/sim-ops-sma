@@ -43,6 +43,7 @@ import { LaporanJadwalView } from './components/modules/LaporanJadwalView';
 import { AktivitasTerbaruView } from './components/modules/AktivitasTerbaruView';
 import { OperatorSkillsView } from './components/modules/OperatorSkillsView';
 import { BendaharaKeuanganView } from './components/modules/BendaharaKeuanganView';
+import { TransaksiKwitansi, PembayaranItem } from './types/finance';
 
 export const App: React.FC = () => {
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -223,6 +224,27 @@ export const App: React.FC = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeRole, setActiveRole] = useState<'OPS' | 'Kurikulum' | 'Kepsek' | 'Bendahara'>('OPS');
+
+  // Keuangan & Bendahara State (Disinkronkan dengan Cloud & LocalStorage)
+  const [transaksiList, setTransaksiList] = useState<TransaksiKwitansi[]>(() => {
+    try {
+      const saved = localStorage.getItem('simops_keuangan_transaksi');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
+  });
+
+  const [paymentOverrides, setPaymentOverrides] = useState<Record<string, Partial<PembayaranItem>>>(() => {
+    try {
+      const saved = localStorage.getItem('simops_keuangan_overrides');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return {};
+  });
   
   // Cloud Sync state (Supabase PostgreSQL Cloud + Cloudflare Pages KV Fallback)
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
@@ -243,12 +265,16 @@ export const App: React.FC = () => {
       setMapelList([]);
       setJournals([]);
       setActivities([]);
+      setTransaksiList([]);
+      setPaymentOverrides({});
       localStorage.setItem('sim_ops_master_gtk', '[]');
       localStorage.setItem('sim_ops_master_siswa', '[]');
       localStorage.setItem('sim_ops_master_rombel', '[]');
       localStorage.setItem('sim_ops_master_mapel', '[]');
       localStorage.setItem('simops_journals', '[]');
       localStorage.setItem('simops_activities', '[]');
+      localStorage.setItem('simops_keuangan_transaksi', '[]');
+      localStorage.setItem('simops_keuangan_overrides', '{}');
     } else {
       localStorage.removeItem('simops_db_cleared');
       if (Array.isArray(cloudData.gtkList)) {
@@ -274,6 +300,14 @@ export const App: React.FC = () => {
       if (Array.isArray(cloudData.activities)) {
         setActivities(cloudData.activities);
         localStorage.setItem('simops_activities', JSON.stringify(cloudData.activities));
+      }
+      if (Array.isArray(cloudData.transaksiList)) {
+        setTransaksiList(cloudData.transaksiList);
+        localStorage.setItem('simops_keuangan_transaksi', JSON.stringify(cloudData.transaksiList));
+      }
+      if (cloudData.paymentOverrides && typeof cloudData.paymentOverrides === 'object') {
+        setPaymentOverrides(cloudData.paymentOverrides);
+        localStorage.setItem('simops_keuangan_overrides', JSON.stringify(cloudData.paymentOverrides));
       }
       if (cloudData.schoolInfo) {
         setSchoolInfo(cloudData.schoolInfo);
@@ -449,6 +483,8 @@ export const App: React.FC = () => {
           mapelList,
           journals,
           activities,
+          transaksiList,
+          paymentOverrides,
           schoolInfo,
           isCleared: localStorage.getItem('simops_db_cleared') === 'true',
           updatedAt: newTimestamp,
@@ -491,7 +527,7 @@ export const App: React.FC = () => {
         clearTimeout(syncDebounceTimerRef.current);
       }
     };
-  }, [gtkList, siswaList, rombelList, mapelList, journals, activities, schoolInfo]);
+  }, [gtkList, siswaList, rombelList, mapelList, journals, activities, transaksiList, paymentOverrides, schoolInfo]);
 
   // Modals state
   const [jurnalModalOpen, setJurnalModalOpen] = useState(false);
@@ -1404,6 +1440,28 @@ export const App: React.FC = () => {
                 subType={currentPath as any}
                 schoolInfo={schoolInfo}
                 siswaList={siswaList}
+                transaksiList={transaksiList}
+                paymentOverrides={paymentOverrides}
+                onUpdateTransaksi={(newList) => {
+                  setTransaksiList(newList);
+                  try {
+                    localStorage.setItem('simops_keuangan_transaksi', JSON.stringify(newList));
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                onUpdateOverrides={(newOverrides) => {
+                  setPaymentOverrides(newOverrides);
+                  try {
+                    localStorage.setItem('simops_keuangan_overrides', JSON.stringify(newOverrides));
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                isCloudSyncing={isCloudSyncing}
+                cloudSyncedAt={cloudSyncedAt}
+                syncEngine={syncEngine}
+                onManualSync={() => syncFromCloud(true)}
                 onShowToast={showToast}
                 onNavigateToSiswa={() => setCurrentPath('data-peserta-didik')}
                 onAddActivity={(title, desc) => {

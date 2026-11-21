@@ -8,6 +8,7 @@ import { SchoolInfo } from '../types';
 import { GTKItem, SiswaItem, RombelItem, MapelItem } from '../data/modulesData';
 import { DailyJournal } from '../types/journal';
 import { ActivityLog } from '../types';
+import { TransaksiKwitansi, PembayaranItem } from '../types/finance';
 
 export interface SupabaseConfig {
   url: string;
@@ -22,6 +23,8 @@ export interface SupabaseSyncPayload {
   mapelList: MapelItem[];
   journals: DailyJournal[];
   activities: ActivityLog[];
+  transaksiList?: TransaksiKwitansi[];
+  paymentOverrides?: Record<string, Partial<PembayaranItem>>;
   schoolInfo: SchoolInfo;
   isCleared: boolean;
   version: string;
@@ -531,6 +534,33 @@ async function pushRelationalTables(cfg: SupabaseConfig, payload: SupabaseSyncPa
         unit_operator: s.operatorUnit,
         logo_url: s.logoUrl || '/logo-sma-nu.png?v=3'
       }])
+    });
+  }
+
+  // F. Upsert Transaksi Keuangan & Kwitansi Kasir Bendahara (jika tabel relasional dibuat)
+  if (Array.isArray(payload.transaksiList) && payload.transaksiList.length > 0) {
+    const txRows = payload.transaksiList.map(t => ({
+      id: t.id,
+      nomor_kwitansi: t.nomorKwitansi,
+      tanggal: t.tanggal,
+      siswa_id: t.siswaId,
+      nama_siswa: t.namaSiswa,
+      nisn: t.nisn,
+      rombel: t.rombel,
+      kategori: t.kategori,
+      bulan_dibayar: t.bulanDibayar || [],
+      jumlah: t.jumlah,
+      metode: t.metode,
+      keterangan: t.keterangan,
+      penerima: t.penerima
+    }));
+
+    await fetch(`${cfg.url}/rest/v1/transaksi_keuangan`, {
+      method: 'POST',
+      headers: getHeaders(cfg.anonKey, 'resolution=merge-duplicates'),
+      body: JSON.stringify(txRows)
+    }).catch(() => {
+      // Snapshot utuh tetap tersimpan dengan aman di tabel simops_sync_state
     });
   }
 }
