@@ -1,7 +1,76 @@
 import React, { useState, useMemo } from 'react';
-import { SiswaItem, RombelItem } from '../../data/modulesData';
+import { SiswaItem, RombelItem, DAFTAR_30_ROMBEL } from '../../data/modulesData';
 import { SchoolInfo } from '../../types';
 import { PembayaranItem, TransaksiKwitansi, KategoriPosKeuangan } from '../../types/finance';
+
+// Pemetaan resmi Wali Kelas SMA NU Kaplongan untuk 30 Rombel Kurikulum Merdeka
+export const DEFAULT_WALI_MAP: Record<string, string> = {
+  'X-1': 'ABDUL AZIZ MUSTOFA',
+  'X-2': 'Dewi Sartika, S.Pd',
+  'X-3': 'Siti Nurhalizah, S.Pd',
+  'X-4': 'Drs. Budi Santoso',
+  'X-5': 'Rina Marlina, S.Pd',
+  'X-6': 'Agus Setiawan, S.Pd',
+  'X-7': 'Nurul Hidayah, S.Pd',
+  'X-8': 'Hendra Wijaya, S.Pd',
+  'X-9': 'Yuni Astuti, S.Pd',
+  'X-10': 'Dedi Kuswandi, S.Pd',
+  'XI-1': 'Ahmad Fauzi, S.Pd, M.Si',
+  'XI-2': 'Moh. Ridwan, M.Pd',
+  'XI-3': 'Siti Khodijah, S.Pd',
+  'XI-4': 'Bambang Irawan, S.Pd',
+  'XI-5': 'Eka Prasetya, S.Pd',
+  'XI-6': 'Tri Wahyuni, S.Pd',
+  'XI-7': 'Arif Rahman, S.Pd',
+  'XI-8': 'Fitri Handayani, S.Pd',
+  'XI-9': 'Joko Susilo, S.Pd',
+  'XI-10': 'Sri Mulyani, S.Pd',
+  'XII-1': 'H. Abdul Ghofur, S.Ag',
+  'XII-2': 'Ika Wardani, S.Kom',
+  'XII-3': 'Drs. H. Toufik Zaenal Mustofa, M.Pd.I',
+  'XII-4': 'Bagas Pratama, S.Kom',
+  'XII-5': 'Maya Indriani, S.Pd',
+  'XII-6': 'Andi Saputra, S.Pd',
+  'XII-7': 'Ratna Sari, S.Pd',
+  'XII-8': 'Gunawan, S.Pd',
+  'XII-9': 'Wulan Dari, S.Pd',
+  'XII-10': 'Rudi Hartono, S.Pd',
+};
+
+// Normalisasi penamaan rombel (menghapus residu format lama seperti "X-B (Fase E)", "X 1", dsb)
+export function normalizeRombelName(r?: string): string {
+  if (!r) return 'X-1';
+  let clean = r.trim().replace(/\s*\(Fase\s+[EF]\)/gi, '');
+  if (clean === 'X-A' || clean === 'X A') return 'X-1';
+  if (clean === 'X-B' || clean === 'X B' || clean.startsWith('X-B')) return 'X-2';
+  if (clean.startsWith('XI-MIPA 1') || clean.startsWith('XI-IPA 1')) return 'XI-1';
+  if (clean.startsWith('XI-MIPA 2') || clean.startsWith('XI-IPA 2')) return 'XI-2';
+  if (clean.startsWith('XII-MIPA 1') || clean.startsWith('XII-IPA 1')) return 'XII-1';
+  if (clean.startsWith('XII-IPS 1')) return 'XII-2';
+  clean = clean.replace(/^(X|XI|XII)\s+(\d+)$/i, '$1-$2');
+  return clean;
+}
+
+// Pengurutan rombel secara alami (X-1, X-2, ... X-10, XI-1 ... XII-10)
+export function sortRombelsNaturally(rombels: string[]): string[] {
+  const parse = (name: string) => {
+    const clean = name.replace(/^Kelas\s+/i, '').trim();
+    const match = clean.match(/^(X|XI|XII)[-\s]?(\d+)?/i);
+    if (!match) return { grade: 99, num: 99, original: name };
+    const gradeStr = match[1].toUpperCase();
+    const grade = gradeStr === 'X' ? 1 : gradeStr === 'XI' ? 2 : 3;
+    const num = match[2] ? parseInt(match[2], 10) : 0;
+    return { grade, num, original: name };
+  };
+
+  return [...rombels].sort((a, b) => {
+    const pa = parse(a);
+    const pb = parse(b);
+    if (pa.grade !== pb.grade) return pa.grade - pb.grade;
+    if (pa.num !== pb.num) return pa.num - pb.num;
+    return a.localeCompare(b);
+  });
+}
 
 interface BendaharaKeuanganViewProps {
   subType: 'tunggakan-dan-spp' | 'riwayat-kwitansi-bayar' | 'rekap-surat-tunggakan';
@@ -128,10 +197,18 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
   // Helper map from rombelList to resolve designated Wali Kelas name
   const rombelWaliMap = useMemo(() => {
     const map = new Map<string, string>();
+    // Pre-populate with official 30 rombel SMA NU Kaplongan
+    Object.entries(DEFAULT_WALI_MAP).forEach(([r, w]) => {
+      map.set(r, w);
+      map.set(r.replace('-', ' '), w);
+    });
+
     rombelList.forEach(r => {
-      map.set(r.namaRombel, r.waliKelas);
-      const cleanName = r.namaRombel.replace(/\s+/g, '-').replace('(', '').replace(')', '');
-      map.set(cleanName, r.waliKelas);
+      const cleanName = normalizeRombelName(r.namaRombel);
+      if (r.waliKelas && !r.waliKelas.startsWith('Wali Kelas')) {
+        map.set(cleanName, r.waliKelas);
+        map.set(r.namaRombel, r.waliKelas);
+      }
     });
     return map;
   }, [rombelList]);
@@ -147,53 +224,65 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('Semua');
   const [filterPipOnly, setFilterPipOnly] = useState(false);
 
-  // Available Rombels from siswaList and rombelList
+  // Available Rombels: Clean, deduplicated, sorted naturally (X-1 to X-10, XI-1 to XI-10, XII-1 to XII-10)
   const rombelOptions = useMemo(() => {
     const set = new Set<string>();
-    siswaList.forEach(s => {
-      if (s.rombel) set.add(s.rombel);
-    });
+
+    // 1. Always include official 30 rombels of SMA NU Kaplongan
+    DAFTAR_30_ROMBEL.forEach(r => set.add(r));
+
+    // 2. Add from rombelList if valid
     rombelList.forEach(r => {
-      if (r.namaRombel) set.add(r.namaRombel);
+      const clean = normalizeRombelName(r.namaRombel);
+      if (clean && /^(X|XI|XII)-\d+$/i.test(clean)) {
+        set.add(clean);
+      }
     });
-    // Default fallback rombels if list is clean
-    if (set.size === 0) {
-      ['X-1', 'X-2', 'XI-1', 'XI-2', 'XII-1', 'XII-2'].forEach(r => set.add(r));
-    }
-    return Array.from(set).sort();
+
+    // 3. Add from siswaList if valid
+    siswaList.forEach(s => {
+      const clean = normalizeRombelName(s.rombel);
+      if (clean && /^(X|XI|XII)-\d+$/i.test(clean)) {
+        set.add(clean);
+      }
+    });
+
+    return sortRombelsNaturally(Array.from(set));
   }, [siswaList, rombelList]);
 
   // Resolved Wali Kelas for the currently selected Rombel
   const activeWaliKelasName = useMemo(() => {
     if (selectedRombel === 'Semua') return 'Semua Wali Kelas';
+    const cleanRombel = normalizeRombelName(selectedRombel);
     // 1. From rombelWaliMap
+    if (rombelWaliMap.has(cleanRombel)) {
+      return rombelWaliMap.get(cleanRombel)!;
+    }
     if (rombelWaliMap.has(selectedRombel)) {
       return rombelWaliMap.get(selectedRombel)!;
     }
     // 2. From first matching student
-    const matchedSiswa = siswaList.find(s => s.rombel === selectedRombel && s.waliKelas);
-    if (matchedSiswa?.waliKelas) return matchedSiswa.waliKelas;
+    const matchedSiswa = siswaList.find(s => normalizeRombelName(s.rombel) === cleanRombel && s.waliKelas);
+    if (matchedSiswa?.waliKelas && !matchedSiswa.waliKelas.startsWith('Wali Kelas')) {
+      return matchedSiswa.waliKelas;
+    }
 
     // 3. Defaults based on school standards
-    if (selectedRombel.includes('X-1') || selectedRombel.includes('X 1')) return 'ABDUL AZIZ MUSTOFA';
-    if (selectedRombel.includes('X-2') || selectedRombel.includes('X 2')) return 'Dewi Sartika, S.Pd';
-    if (selectedRombel.includes('XI-1') || selectedRombel.includes('XI 1')) return 'Ahmad Fauzi, S.Pd';
-    if (selectedRombel.includes('XI-2') || selectedRombel.includes('XI 2')) return 'Moh. Ridwan, M.Pd';
-    if (selectedRombel.includes('XII-1') || selectedRombel.includes('XII 1')) return 'H. Abdul Ghofur, S.Ag';
-    if (selectedRombel.includes('XII-2') || selectedRombel.includes('XII 2')) return 'Ika Wardani, S.Kom';
-    return 'Wali Kelas SMA NU Kaplongan';
+    return DEFAULT_WALI_MAP[cleanRombel] || 'ABDUL AZIZ MUSTOFA';
   }, [selectedRombel, rombelWaliMap, siswaList]);
 
   // Generate dynamic student payment records with the 7 user requested columns
   const pembayaranList: PembayaranItem[] = useMemo(() => {
     return siswaList.map((siswa) => {
+      const cleanRombel = normalizeRombelName(siswa.rombel);
       const override = paymentOverrides[siswa.id] || {};
 
-      // 1. Wali Kelas name
-      const resolvedWali = override.waliKelas || siswa.waliKelas || rombelWaliMap.get(siswa.rombel) || (siswa.rombel.includes('X-1') || siswa.rombel.includes('X 1') ? 'ABDUL AZIZ MUSTOFA' : 'Wali Kelas');
+      // 1. Wali Kelas name (matching school ledger)
+      const designatedWali = rombelWaliMap.get(cleanRombel) || DEFAULT_WALI_MAP[cleanRombel] || 'ABDUL AZIZ MUSTOFA';
+      const resolvedWali = override.waliKelas || (siswa.waliKelas && !siswa.waliKelas.startsWith('Wali Kelas') ? siswa.waliKelas : designatedWali);
 
       // 2. Tunggakan Tahun Lalu
-      const defaultTagihanTahunLalu = siswa.rombel.includes('XI') ? 350000 : siswa.rombel.includes('XII') ? 500000 : 0;
+      const defaultTagihanTahunLalu = cleanRombel.includes('XI') ? 350000 : cleanRombel.includes('XII') ? 500000 : 0;
       const tagihanTahunLalu = override.tagihanTahunLalu !== undefined ? override.tagihanTahunLalu : defaultTagihanTahunLalu;
 
       // 3. Daftar Ulang
@@ -260,7 +349,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
         nipd: siswa.nipd,
         nama: siswa.nama,
         jenisKelamin: siswa.jenisKelamin || 'L',
-        rombel: siswa.rombel,
+        rombel: cleanRombel,
         waliKelas: resolvedWali,
         pipStatus: siswa.pipStatus,
         nominalPip: siswa.nominalPip || (siswa.pipStatus === 'Penerima Aktif' ? 1800000 : 0),
@@ -919,61 +1008,44 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
       {subType === 'tunggakan-dan-spp' && (
         <div className="p-5 rounded-2xl bg-surface-container-lowest dark:bg-slate-900 border border-surface-container/80 dark:border-slate-800 shadow-xs space-y-4">
           
-          {/* Top Control Bar: View Mode, Periode, Kelas, Wali Kelas & Print */}
-          <div className="no-print flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('ledger')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    viewMode === 'ledger'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">table_view</span>
-                  <span>Format Buku Ledger Sekolah</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('compact')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    viewMode === 'compact'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">list_alt</span>
-                  <span>Tabel Ringkasan Kasir</span>
-                </button>
-              </div>
-
-              {/* Periode Selector (Header Buku Ledger) */}
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-slate-500 font-medium">Periode:</span>
-                <select
-                  value={ledgerPeriode}
-                  onChange={(e) => setLedgerPeriode(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
-                >
-                  <option value="SAMPAI AGUSTUS 2026">SAMPAI AGUSTUS 2026</option>
-                  <option value="SAMPAI SEPTEMBER 2026">SAMPAI SEPTEMBER 2026</option>
-                  <option value="SAMPAI OKTOBER 2026">SAMPAI OKTOBER 2026</option>
-                  <option value="SAMPAI NOVEMBER 2026">SAMPAI NOVEMBER 2026</option>
-                  <option value="SAMPAI DESEMBER 2026">SAMPAI DESEMBER 2026</option>
-                  <option value="SEMESTER GANJIL 2026/2027">SEMESTER GANJIL 2026/2027</option>
-                </select>
-              </div>
+          {/* Top Control Bar: Baris 1: View Mode Switcher (Kiri) & Action Buttons (Kanan) */}
+          <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+            {/* Kiri: View Mode Toggle */}
+            <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 w-fit shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode('ledger')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'ledger'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">table_view</span>
+                <span>Format Buku Ledger Sekolah</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('compact')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'compact'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">list_alt</span>
+                <span>Tabel Ringkasan Kasir</span>
+              </button>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Kanan: Action Buttons (Selaras 1 Baris Rapih Tanpa Wrapping) */}
+            <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
               {!isWaliKelas && (
                 <button
                   type="button"
                   onClick={handleSyncWithBendaharaApp}
                   disabled={isCloudSyncing}
-                  className="px-3 py-1.5 rounded-xl bg-surface-container-low dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer disabled:opacity-60"
+                  className="px-2.5 py-1.5 rounded-xl bg-surface-container-low dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-2xs cursor-pointer shrink-0 disabled:opacity-60"
                   title="Sinkronkan data kasir bendahara dengan database cloud & operator"
                 >
                   <span className={`material-symbols-outlined text-sm text-emerald-600 ${isCloudSyncing ? 'animate-spin' : ''}`}>
@@ -987,7 +1059,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSyncModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-surface-container-low dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl bg-surface-container-low dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-2xs cursor-pointer shrink-0"
                   title="Panel integrasi ekspor BKU dan tarif standar sekolah"
                 >
                   <span className="material-symbols-outlined text-sm text-primary dark:text-sky-400">hub</span>
@@ -998,7 +1070,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1 transition-all shadow-xs cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-sm text-emerald-600">download</span>
                 <span>Ekspor CSV</span>
@@ -1007,7 +1079,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
                 title="Cetak lembar buku ledger format A4 resmi"
               >
                 <span className="material-symbols-outlined text-sm">print</span>
@@ -1016,9 +1088,9 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
             </div>
           </div>
 
-          {/* Filtering Toolbar */}
-          <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex-1 relative">
+          {/* Baris 2: Unified Filter & Search Bar */}
+          <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+            <div className="flex-1 relative min-w-[200px]">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
               <input
                 type="text"
@@ -1030,8 +1102,25 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Periode Selector (Header Buku Ledger) */}
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Periode:</span>
+                <select
+                  value={ledgerPeriode}
+                  onChange={(e) => setLedgerPeriode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="SAMPAI AGUSTUS 2026">SAMPAI AGUSTUS 2026</option>
+                  <option value="SAMPAI SEPTEMBER 2026">SAMPAI SEPTEMBER 2026</option>
+                  <option value="SAMPAI OKTOBER 2026">SAMPAI OKTOBER 2026</option>
+                  <option value="SAMPAI NOVEMBER 2026">SAMPAI NOVEMBER 2026</option>
+                  <option value="SAMPAI DESEMBER 2026">SAMPAI DESEMBER 2026</option>
+                  <option value="SEMESTER GANJIL 2026/2027">SEMESTER GANJIL 2026/2027</option>
+                </select>
+              </div>
+
               {/* Kelas / Perkelas Filter */}
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1 text-xs">
                 <span className="text-slate-500 dark:text-slate-400 font-bold">Kelas:</span>
                 <select
                   value={selectedRombel}
@@ -1046,7 +1135,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               </div>
 
               {/* Status Filter */}
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1 text-xs">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
                 <select
                   value={selectedStatus}
@@ -1506,7 +1595,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
               const rTerbayar = rSiswa.reduce((acc, p) => acc + p.totalTerbayar, 0);
               const rTunggakan = rSiswa.reduce((acc, p) => acc + p.sisaTunggakan, 0);
               const rMenunggakCount = rSiswa.filter(p => p.sisaTunggakan > 0).length;
-              const rWali = rombelWaliMap.get(rombelName) || (rombelName.includes('X-1') ? 'ABDUL AZIZ MUSTOFA' : 'Wali Kelas');
+              const rWali = rombelWaliMap.get(rombelName) || DEFAULT_WALI_MAP[rombelName] || 'ABDUL AZIZ MUSTOFA';
               const rPct = rTagihan > 0 ? Math.round((rTerbayar / rTagihan) * 100) : 0;
 
               return (
@@ -1589,7 +1678,7 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
                   className="w-full p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-bold"
                 >
                   {rombelOptions.map((r) => (
-                    <option key={r} value={r}>Kelas {r} ({rombelWaliMap.get(r) || (r.includes('X-1') ? 'ABDUL AZIZ MUSTOFA' : 'Wali Kelas')})</option>
+                    <option key={r} value={r}>Kelas {r} ({rombelWaliMap.get(r) || DEFAULT_WALI_MAP[r] || 'ABDUL AZIZ MUSTOFA'})</option>
                   ))}
                 </select>
               </div>

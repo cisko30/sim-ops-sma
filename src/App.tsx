@@ -151,11 +151,25 @@ export const App: React.FC = () => {
     try {
       if (isDBCleared()) return [];
       const saved = localStorage.getItem('sim_ops_master_siswa');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((s: SiswaItem) => {
+            let cleanRombel = (s.rombel || '').replace(/\s*\(Fase\s+[EF]\)/gi, '').trim();
+            if (cleanRombel === 'X-A' || cleanRombel === 'X A') cleanRombel = 'X-1';
+            if (cleanRombel === 'X-B' || cleanRombel === 'X B' || cleanRombel.startsWith('X-B')) cleanRombel = 'X-2';
+            if (cleanRombel.startsWith('XI-MIPA 1')) cleanRombel = 'XI-1';
+            if (cleanRombel.startsWith('XI-MIPA 2')) cleanRombel = 'XI-2';
+            if (cleanRombel.startsWith('XII-MIPA 1')) cleanRombel = 'XII-1';
+            if (cleanRombel.startsWith('XII-IPS 1')) cleanRombel = 'XII-2';
+            return { ...s, rombel: cleanRombel };
+          });
+        }
+      }
     } catch (e) {
       console.error(e);
     }
-    return [];
+    return MOCK_SISWA_LIST;
   });
 
   useEffect(() => {
@@ -170,11 +184,17 @@ export const App: React.FC = () => {
     try {
       if (isDBCleared()) return [];
       const saved = localStorage.getItem('sim_ops_master_rombel');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = parsed.filter((r: RombelItem) => !['X-A', 'X-B', 'XI-MIPA 1', 'XI-MIPA 2', 'XII-MIPA 1', 'XII-IPS 1'].includes(r.namaRombel));
+          if (cleaned.length >= 6) return cleaned;
+        }
+      }
     } catch (e) {
       console.error(e);
     }
-    return [];
+    return MOCK_ROMBEL_LIST;
   });
 
   useEffect(() => {
@@ -287,12 +307,24 @@ export const App: React.FC = () => {
         localStorage.setItem('sim_ops_master_gtk', JSON.stringify(cloudData.gtkList));
       }
       if (Array.isArray(cloudData.siswaList)) {
-        setSiswaList(cloudData.siswaList);
-        localStorage.setItem('sim_ops_master_siswa', JSON.stringify(cloudData.siswaList));
+        const cleanedSiswa = cloudData.siswaList.map((s: SiswaItem) => {
+          let cleanRombel = (s.rombel || '').replace(/\s*\(Fase\s+[EF]\)/gi, '').trim();
+          if (cleanRombel === 'X-A' || cleanRombel === 'X A') cleanRombel = 'X-1';
+          if (cleanRombel === 'X-B' || cleanRombel === 'X B' || cleanRombel.startsWith('X-B')) cleanRombel = 'X-2';
+          if (cleanRombel.startsWith('XI-MIPA 1')) cleanRombel = 'XI-1';
+          if (cleanRombel.startsWith('XI-MIPA 2')) cleanRombel = 'XI-2';
+          if (cleanRombel.startsWith('XII-MIPA 1')) cleanRombel = 'XII-1';
+          if (cleanRombel.startsWith('XII-IPS 1')) cleanRombel = 'XII-2';
+          return { ...s, rombel: cleanRombel };
+        });
+        setSiswaList(cleanedSiswa);
+        localStorage.setItem('sim_ops_master_siswa', JSON.stringify(cleanedSiswa));
       }
       if (Array.isArray(cloudData.rombelList)) {
-        setRombelList(cloudData.rombelList);
-        localStorage.setItem('sim_ops_master_rombel', JSON.stringify(cloudData.rombelList));
+        const cleanedRombel = cloudData.rombelList.filter((r: RombelItem) => !['X-A', 'X-B', 'XI-MIPA 1', 'XI-MIPA 2', 'XII-MIPA 1', 'XII-IPS 1'].includes(r.namaRombel));
+        const finalRombels = cleanedRombel.length > 0 ? cleanedRombel : MOCK_ROMBEL_LIST;
+        setRombelList(finalRombels);
+        localStorage.setItem('sim_ops_master_rombel', JSON.stringify(finalRombels));
       }
       if (Array.isArray(cloudData.mapelList)) {
         setMapelList(cloudData.mapelList);

@@ -326,7 +326,7 @@ export const MOCK_SISWA_LIST: SiswaItem[] = [
     nikStatus: 'Valid',
     pipStatus: 'Penerima Aktif',
     nominalPip: 1800000,
-    waliKelas: 'Abdul Aziz Mustofa'
+    waliKelas: 'ABDUL AZIZ MUSTOFA'
   },
   {
     id: 'sis-2',
@@ -338,7 +338,7 @@ export const MOCK_SISWA_LIST: SiswaItem[] = [
     nikStatus: 'Valid',
     pipStatus: 'Penerima Aktif',
     nominalPip: 1800000,
-    waliKelas: 'Abdul Aziz Mustofa'
+    waliKelas: 'ABDUL AZIZ MUSTOFA'
   },
   {
     id: 'sis-3',
@@ -362,7 +362,7 @@ export const MOCK_SISWA_LIST: SiswaItem[] = [
     nikStatus: 'Valid',
     pipStatus: 'Penerima Aktif',
     nominalPip: 1800000,
-    waliKelas: 'Ahmad Fauzi, S.Pd'
+    waliKelas: 'Ahmad Fauzi, S.Pd, M.Si'
   },
   {
     id: 'sis-5',
@@ -401,74 +401,43 @@ export const MOCK_SISWA_LIST: SiswaItem[] = [
   }
 ];
 
-// 3. DATA ROMBEL SMA NU KAPLONGAN
+// 3. DATA ROMBEL SMA NU KAPLONGAN (30 ROMBEL KURIKULUM MERDEKA LENGKAP)
 export const MOCK_ROMBEL_LIST: RombelItem[] = [
-  {
-    id: 'rom-1',
-    namaRombel: 'X-1',
-    tingkat: 'X',
-    kurikulum: 'Kurikulum Merdeka',
-    waliKelas: 'Abdul Aziz Mustofa',
-    jumlahSiswaL: 16,
-    jumlahSiswaP: 18,
-    totalSiswa: 34,
-    ruang: 'R. Teori 01'
-  },
-  {
-    id: 'rom-2',
-    namaRombel: 'X-2',
-    tingkat: 'X',
-    kurikulum: 'Kurikulum Merdeka',
-    waliKelas: 'Dewi Sartika, S.Pd',
-    jumlahSiswaL: 15,
-    jumlahSiswaP: 19,
-    totalSiswa: 34,
-    ruang: 'R. Teori 02'
-  },
-  {
-    id: 'rom-3',
-    namaRombel: 'XI-1',
-    tingkat: 'XI',
-    kurikulum: 'Kurikulum Merdeka',
-    waliKelas: 'Ahmad Fauzi, S.Pd, M.Si',
-    jumlahSiswaL: 14,
-    jumlahSiswaP: 20,
-    totalSiswa: 34,
-    ruang: 'R. Teori 03'
-  },
-  {
-    id: 'rom-4',
-    namaRombel: 'XI-2',
-    tingkat: 'XI',
-    kurikulum: 'Kurikulum Merdeka',
-    waliKelas: 'Moh. Ridwan, M.Pd',
-    jumlahSiswaL: 15,
-    jumlahSiswaP: 18,
-    totalSiswa: 33,
-    ruang: 'R. Teori 04'
-  },
-  {
-    id: 'rom-5',
-    namaRombel: 'XII-1',
-    tingkat: 'XII',
-    kurikulum: 'Kurikulum Merdeka',
-    waliKelas: 'H. Abdul Ghofur, S.Ag',
-    jumlahSiswaL: 17,
-    jumlahSiswaP: 18,
-    totalSiswa: 35,
-    ruang: 'R. Teori 05'
-  },
-  {
-    id: 'rom-6',
-    namaRombel: 'XII-2',
-    tingkat: 'XII',
-    kurikulum: 'Kurikulum Merdeka',
-    waliKelas: 'Ika Wardani, S.Kom',
-    jumlahSiswaL: 18,
-    jumlahSiswaP: 17,
-    totalSiswa: 35,
-    ruang: 'R. Teori 06'
-  }
+  // Tingkat X (10 Rombel)
+  { id: 'rom-x-1', namaRombel: 'X-1', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'ABDUL AZIZ MUSTOFA', jumlahSiswaL: 16, jumlahSiswaP: 18, totalSiswa: 34, ruang: 'R. Teori 01' },
+  { id: 'rom-x-2', namaRombel: 'X-2', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Dewi Sartika, S.Pd', jumlahSiswaL: 15, jumlahSiswaP: 19, totalSiswa: 34, ruang: 'R. Teori 02' },
+  { id: 'rom-x-3', namaRombel: 'X-3', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Siti Nurhalizah, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 17, totalSiswa: 33, ruang: 'R. Teori 03' },
+  { id: 'rom-x-4', namaRombel: 'X-4', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Drs. Budi Santoso', jumlahSiswaL: 17, jumlahSiswaP: 17, totalSiswa: 34, ruang: 'R. Teori 04' },
+  { id: 'rom-x-5', namaRombel: 'X-5', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Rina Marlina, S.Pd', jumlahSiswaL: 15, jumlahSiswaP: 18, totalSiswa: 33, ruang: 'R. Teori 05' },
+  { id: 'rom-x-6', namaRombel: 'X-6', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Agus Setiawan, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 18, totalSiswa: 34, ruang: 'R. Teori 06' },
+  { id: 'rom-x-7', namaRombel: 'X-7', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Nurul Hidayah, S.Pd', jumlahSiswaL: 14, jumlahSiswaP: 20, totalSiswa: 34, ruang: 'R. Teori 07' },
+  { id: 'rom-x-8', namaRombel: 'X-8', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Hendra Wijaya, S.Pd', jumlahSiswaL: 18, jumlahSiswaP: 16, totalSiswa: 34, ruang: 'R. Teori 08' },
+  { id: 'rom-x-9', namaRombel: 'X-9', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Yuni Astuti, S.Pd', jumlahSiswaL: 15, jumlahSiswaP: 18, totalSiswa: 33, ruang: 'R. Teori 09' },
+  { id: 'rom-x-10', namaRombel: 'X-10', tingkat: 'X', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Dedi Kuswandi, S.Pd', jumlahSiswaL: 17, jumlahSiswaP: 17, totalSiswa: 34, ruang: 'R. Teori 10' },
+
+  // Tingkat XI (10 Rombel)
+  { id: 'rom-xi-1', namaRombel: 'XI-1', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Ahmad Fauzi, S.Pd, M.Si', jumlahSiswaL: 14, jumlahSiswaP: 20, totalSiswa: 34, ruang: 'R. Teori 11' },
+  { id: 'rom-xi-2', namaRombel: 'XI-2', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Moh. Ridwan, M.Pd', jumlahSiswaL: 15, jumlahSiswaP: 18, totalSiswa: 33, ruang: 'R. Teori 12' },
+  { id: 'rom-xi-3', namaRombel: 'XI-3', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Siti Khodijah, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 17, totalSiswa: 33, ruang: 'R. Teori 13' },
+  { id: 'rom-xi-4', namaRombel: 'XI-4', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Bambang Irawan, S.Pd', jumlahSiswaL: 17, jumlahSiswaP: 16, totalSiswa: 33, ruang: 'R. Teori 14' },
+  { id: 'rom-xi-5', namaRombel: 'XI-5', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Eka Prasetya, S.Pd', jumlahSiswaL: 15, jumlahSiswaP: 19, totalSiswa: 34, ruang: 'R. Teori 15' },
+  { id: 'rom-xi-6', namaRombel: 'XI-6', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Tri Wahyuni, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 18, totalSiswa: 34, ruang: 'R. Teori 16' },
+  { id: 'rom-xi-7', namaRombel: 'XI-7', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Arif Rahman, S.Pd', jumlahSiswaL: 14, jumlahSiswaP: 19, totalSiswa: 33, ruang: 'R. Teori 17' },
+  { id: 'rom-xi-8', namaRombel: 'XI-8', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Fitri Handayani, S.Pd', jumlahSiswaL: 18, jumlahSiswaP: 16, totalSiswa: 34, ruang: 'R. Teori 18' },
+  { id: 'rom-xi-9', namaRombel: 'XI-9', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Joko Susilo, S.Pd', jumlahSiswaL: 15, jumlahSiswaP: 18, totalSiswa: 33, ruang: 'R. Teori 19' },
+  { id: 'rom-xi-10', namaRombel: 'XI-10', tingkat: 'XI', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Sri Mulyani, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 17, totalSiswa: 33, ruang: 'R. Teori 20' },
+
+  // Tingkat XII (10 Rombel)
+  { id: 'rom-xii-1', namaRombel: 'XII-1', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'H. Abdul Ghofur, S.Ag', jumlahSiswaL: 17, jumlahSiswaP: 18, totalSiswa: 35, ruang: 'R. Teori 21' },
+  { id: 'rom-xii-2', namaRombel: 'XII-2', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Ika Wardani, S.Kom', jumlahSiswaL: 18, jumlahSiswaP: 17, totalSiswa: 35, ruang: 'R. Teori 22' },
+  { id: 'rom-xii-3', namaRombel: 'XII-3', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Drs. H. Toufik Zaenal Mustofa, M.Pd.I', jumlahSiswaL: 16, jumlahSiswaP: 18, totalSiswa: 34, ruang: 'R. Teori 23' },
+  { id: 'rom-xii-4', namaRombel: 'XII-4', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Bagas Pratama, S.Kom', jumlahSiswaL: 15, jumlahSiswaP: 19, totalSiswa: 34, ruang: 'R. Teori 24' },
+  { id: 'rom-xii-5', namaRombel: 'XII-5', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Maya Indriani, S.Pd', jumlahSiswaL: 17, jumlahSiswaP: 17, totalSiswa: 34, ruang: 'R. Teori 25' },
+  { id: 'rom-xii-6', namaRombel: 'XII-6', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Andi Saputra, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 18, totalSiswa: 34, ruang: 'R. Teori 26' },
+  { id: 'rom-xii-7', namaRombel: 'XII-7', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Ratna Sari, S.Pd', jumlahSiswaL: 14, jumlahSiswaP: 19, totalSiswa: 33, ruang: 'R. Teori 27' },
+  { id: 'rom-xii-8', namaRombel: 'XII-8', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Gunawan, S.Pd', jumlahSiswaL: 18, jumlahSiswaP: 16, totalSiswa: 34, ruang: 'R. Teori 28' },
+  { id: 'rom-xii-9', namaRombel: 'XII-9', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Wulan Dari, S.Pd', jumlahSiswaL: 15, jumlahSiswaP: 18, totalSiswa: 33, ruang: 'R. Teori 29' },
+  { id: 'rom-xii-10', namaRombel: 'XII-10', tingkat: 'XII', kurikulum: 'Kurikulum Merdeka', waliKelas: 'Rudi Hartono, S.Pd', jumlahSiswaL: 16, jumlahSiswaP: 17, totalSiswa: 33, ruang: 'R. Teori 30' }
 ];
 
 // 4. QUICK LINKS PORTAL PUSAT KEMDIKBUD & PUSDATIN (18 PORTAL KEDINASAN OPERATOR SMA)
