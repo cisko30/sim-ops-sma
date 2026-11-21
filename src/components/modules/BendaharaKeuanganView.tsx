@@ -807,67 +807,40 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
       )}
 
       {/* 2. BAR SIKLUS BROADCAST OTOMATIS 2 MINGGUAN KE WALI KELAS */}
-      <div className="no-print print:hidden p-4 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-teal-500/10 border border-blue-500/20 dark:border-blue-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+      <div className="no-print print:hidden p-3.5 sm:p-4 rounded-2xl bg-surface-container-low/70 dark:bg-slate-800/40 border border-surface-container dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm shrink-0">
-            <span className="material-symbols-outlined text-xl">send_and_archive</span>
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary dark:text-sky-400 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-lg">campaign</span>
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">
+              <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
                 Informasi Otomatis 2 Mingguan ke Wali Kelas
               </h4>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Siklus 10: 15 - 30 November 2026 (Aktif)</span>
+                <span>Siklus 10: 15 - 30 Nov 2026 (Aktif)</span>
               </span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-              Rutin tiap 2 minggu: Rekapitulasi tunggakan otomatis digenerate per kelas untuk dikirim ke Wali Kelas via WhatsApp &amp; cetak berkala. Terakhir diperbarui: <b>{lastBroadcastDate}</b>.
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Rutin tiap 2 minggu: Rekapitulasi tunggakan otomatis digenerate per kelas untuk dikirim via WhatsApp &amp; cetak berkala. Terakhir diperbarui: <b>{lastBroadcastDate}</b>.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 self-start md:self-center shrink-0">
           <button
             type="button"
             onClick={() => {
               setBroadcastTargetRombel(selectedRombel !== 'Semua' ? selectedRombel : 'X-1');
               setIsBroadcastModalOpen(true);
             }}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
             title="Buka generator broadcast 2 mingguan ke Wali Kelas"
           >
-            <span className="material-symbols-outlined text-base">campaign</span>
+            <span className="material-symbols-outlined text-base">chat</span>
             <span>Broadcast 2 Mingguan</span>
           </button>
-
-          {!isWaliKelas && (
-            <button
-              type="button"
-              onClick={handleSyncWithBendaharaApp}
-              disabled={isCloudSyncing}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
-              title="Sinkronkan data kasir bendahara dengan database cloud & operator"
-            >
-              <span className={`material-symbols-outlined text-base ${isCloudSyncing ? 'animate-spin' : ''}`}>
-                sync
-              </span>
-              <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Singkronkan Database'}</span>
-            </button>
-          )}
-
-          {!isWaliKelas && (
-            <button
-              type="button"
-              onClick={() => setIsSyncModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-              title="Panel ekspor BKU dan tarif standar sekolah"
-            >
-              <span className="material-symbols-outlined text-base text-primary">hub</span>
-              <span>Integrasi &amp; Ekspor BKU</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -995,6 +968,33 @@ export const BendaharaKeuanganView: React.FC<BendaharaKeuanganViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {!isWaliKelas && (
+                <button
+                  type="button"
+                  onClick={handleSyncWithBendaharaApp}
+                  disabled={isCloudSyncing}
+                  className="px-3 py-1.5 rounded-xl bg-surface-container-low dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer disabled:opacity-60"
+                  title="Sinkronkan data kasir bendahara dengan database cloud & operator"
+                >
+                  <span className={`material-symbols-outlined text-sm text-emerald-600 ${isCloudSyncing ? 'animate-spin' : ''}`}>
+                    sync
+                  </span>
+                  <span>{isCloudSyncing ? 'Sinkron...' : 'Sinkron Kasir'}</span>
+                </button>
+              )}
+
+              {!isWaliKelas && (
+                <button
+                  type="button"
+                  onClick={() => setIsSyncModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl bg-surface-container-low dark:bg-slate-800 hover:bg-surface-container dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                  title="Panel integrasi ekspor BKU dan tarif standar sekolah"
+                >
+                  <span className="material-symbols-outlined text-sm text-primary dark:text-sky-400">hub</span>
+                  <span>Integrasi &amp; BKU</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleExportCSV}

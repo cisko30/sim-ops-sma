@@ -23,7 +23,7 @@ export const JournalReportReviewView: React.FC<JournalReportReviewViewProps> = (
 
   // Use live journals passed from App
   const journals = useMemo(() => {
-    const list = propJournals || INITIAL_JOURNALS;
+    const list = propJournals && propJournals.length > 0 ? propJournals : INITIAL_JOURNALS;
     // Sort chronologically ascending for the official report
     return [...list].sort((a, b) => a.journal_date.localeCompare(b.journal_date));
   }, [propJournals]);

@@ -86,11 +86,14 @@ export const App: React.FC = () => {
     try {
       if (isDBCleared()) return [];
       const cached = localStorage.getItem('simops_journals');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {
       console.error("Failed to load cached journals", e);
     }
-    return [];
+    return INITIAL_JOURNALS;
   });
 
   const handleUpdateJournals = (updater: React.SetStateAction<DailyJournal[]>) => {
@@ -296,8 +299,9 @@ export const App: React.FC = () => {
         localStorage.setItem('sim_ops_master_mapel', JSON.stringify(cloudData.mapelList));
       }
       if (Array.isArray(cloudData.journals)) {
-        setJournals(cloudData.journals);
-        localStorage.setItem('simops_journals', JSON.stringify(cloudData.journals));
+        const resolvedJournals = cloudData.journals.length > 0 ? cloudData.journals : INITIAL_JOURNALS;
+        setJournals(resolvedJournals);
+        localStorage.setItem('simops_journals', JSON.stringify(resolvedJournals));
       }
       if (Array.isArray(cloudData.activities)) {
         setActivities(cloudData.activities);
@@ -968,20 +972,20 @@ export const App: React.FC = () => {
       case 'tunggakan-dan-spp':
         return {
           section: 'Keuangan & Bendahara',
-          title: 'Cek Tunggakan & Pembayaran SPP Siswa',
-          subtitle: 'Monitoring piutang SPP, DSP gedung, praktikum siswa, dan integrasi pencairan bantuan PIP'
+          title: 'Buku Ledger & Tunggakan Siswa',
+          subtitle: 'Monitoring piutang SPP/Syahriyah, daftar ulang, tunggakan tahun lalu, dan rekapitulasi per-kelas'
         };
       case 'riwayat-kwitansi-bayar':
         return {
           section: 'Keuangan & Bendahara',
-          title: 'Arsip Kwitansi & Riwayat Transaksi Kasir',
-          subtitle: 'Daftar bukti pembayaran sah, cetak kwitansi resmi A4, dan verifikasi dana masuk'
+          title: 'Riwayat Kwitansi & Kasir Sekolah',
+          subtitle: 'Daftar bukti pembayaran sah, kwitansi resmi A4, dan verifikasi dana masuk kas'
         };
       case 'rekap-surat-tunggakan':
         return {
           section: 'Keuangan & Bendahara',
-          title: 'Rekapitulasi Tunggakan & Surat Tagihan Kedinasan',
-          subtitle: 'Laporan kepatuhan bayar per rombel, rekapitulasi komite, dan generator surat resmi ke wali murid'
+          title: 'Rekapitulasi Tunggakan per Rombel',
+          subtitle: 'Laporan kepatuhan bayar per kelas, rekapitulasi komite, dan surat pemberitahuan wali murid'
         };
 
       // 7. E-Arsip & Generator
@@ -1085,7 +1089,7 @@ export const App: React.FC = () => {
                     <span className="material-symbols-outlined text-[10px] text-outline">chevron_right</span>
                     <span className="text-primary dark:text-sky-400 font-semibold">{pageMeta.title}</span>
                   </nav>
-                  <h1 className="text-lg sm:text-xl text-primary dark:text-sky-300 tracking-tight font-bold">
+                  <h1 className="text-base sm:text-lg text-slate-900 dark:text-slate-100 font-bold tracking-tight">
                     {pageMeta.title}
                   </h1>
                   <p className="text-xs text-on-surface-variant dark:text-slate-400 flex flex-wrap items-center gap-2 mt-0.5">
