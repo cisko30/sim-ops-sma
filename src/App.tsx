@@ -72,14 +72,12 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Check if database was explicitly cleared by user or clean by default
+  // Check if database was explicitly cleared by user
   const isDBCleared = () => {
     try {
-      const val = localStorage.getItem('simops_db_cleared');
-      if (val === 'false') return false;
-      return true;
+      return localStorage.getItem('simops_db_cleared') === 'true';
     } catch {
-      return true;
+      return false;
     }
   };
 
@@ -251,7 +249,11 @@ export const App: React.FC = () => {
   const [cloudSyncedAt, setCloudSyncedAt] = useState<string | null>(null);
   const [syncEngine, setSyncEngine] = useState<'supabase' | 'kv' | 'local'>('local');
   const isApplyingCloudUpdateRef = useRef<boolean>(false);
-  const lastCloudTimestampRef = useRef<string>('');
+  const isLocalDirtyRef = useRef<boolean>(false);
+  const isSavingRef = useRef<boolean>(false);
+  const lastCloudTimestampRef = useRef<string>(
+    typeof window !== 'undefined' ? (localStorage.getItem('simops_last_sync_time') || '') : ''
+  );
   const isInitialLoadDoneRef = useRef<boolean>(false);
   const syncDebounceTimerRef = useRef<any>(null);
 
@@ -318,6 +320,11 @@ export const App: React.FC = () => {
 
   // Core function to pull latest state from Supabase / Cloudflare KV
   const syncFromCloud = async (manual = false) => {
+    // If local state has unsaved edits in progress and this is not a manual user click, do not overwrite local state
+    if (!manual && (isLocalDirtyRef.current || isSavingRef.current)) {
+      return;
+    }
+
     try {
       setIsCloudSyncing(true);
       const sbConfig = getSupabaseConfig();
@@ -329,16 +336,25 @@ export const App: React.FC = () => {
           if (sbRes.exists && sbRes.data) {
             const cloudData = sbRes.data;
             const cloudTime = cloudData.updatedAt || '';
-            if (manual || !isInitialLoadDoneRef.current || cloudTime !== lastCloudTimestampRef.current) {
+            const remoteTimestamp = new Date(cloudTime).getTime();
+            const localTimestamp = new Date(lastCloudTimestampRef.current).getTime();
+            const isRemoteNewer = !isNaN(remoteTimestamp) && (!localTimestamp || remoteTimestamp > localTimestamp);
+
+            if (manual || !isInitialLoadDoneRef.current || (isRemoteNewer && !isLocalDirtyRef.current)) {
               isApplyingCloudUpdateRef.current = true;
               applyCloudData(cloudData);
               lastCloudTimestampRef.current = cloudTime;
+              try { localStorage.setItem('simops_last_sync_time', cloudTime); } catch (e) {}
               const now = new Date();
               const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
               setCloudSyncedAt(timeStr);
               setSyncEngine('supabase');
-              setTimeout(() => { isApplyingCloudUpdateRef.current = false; }, 400);
+              setTimeout(() => { isApplyingCloudUpdateRef.current = false; }, 1500);
               if (manual) showToast("Sinkronisasi Supabase Cloud PostgreSQL berhasil! Data terpadu.");
+              return;
+            } else if (!isRemoteNewer) {
+              setSyncEngine('supabase');
+              if (manual) showToast("Database lokal sudah sesuai dengan data cloud terbaru.");
               return;
             }
           } else if (!sbRes.exists && !sbRes.error) {
@@ -350,8 +366,10 @@ export const App: React.FC = () => {
               mapelList,
               journals,
               activities,
+              transaksiList,
+              paymentOverrides,
               schoolInfo,
-              isCleared: gtkList.length === 0 && siswaList.length === 0,
+              isCleared: localStorage.getItem('simops_db_cleared') === 'true',
               updatedAt: new Date().toISOString(),
               version: '2.5.0'
             };
@@ -361,6 +379,7 @@ export const App: React.FC = () => {
             const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
             setCloudSyncedAt(timeStr);
             lastCloudTimestampRef.current = baselinePayload.updatedAt;
+            try { localStorage.setItem('simops_last_sync_time', baselinePayload.updatedAt); } catch (e) {}
             if (manual) showToast("Database Supabase berhasil diinisialisasi & disinkronkan!");
             return;
           }
@@ -392,8 +411,10 @@ export const App: React.FC = () => {
             mapelList,
             journals,
             activities,
+            transaksiList,
+            paymentOverrides,
             schoolInfo,
-            isCleared: gtkList.length === 0 && siswaList.length === 0,
+            isCleared: localStorage.getItem('simops_db_cleared') === 'true',
             updatedAt: new Date().toISOString(),
             version: '2.5.0'
           };
@@ -406,27 +427,33 @@ export const App: React.FC = () => {
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
           setCloudSyncedAt(timeStr);
           lastCloudTimestampRef.current = baselinePayload.updatedAt;
+          try { localStorage.setItem('simops_last_sync_time', baselinePayload.updatedAt); } catch (e) {}
           if (manual) showToast("Database awan berhasil diinisialisasi & disinkronkan!");
           return;
         }
 
         // Check if cloud data is newer or if this is manual refresh / initial load
         const cloudTime = cloudData.updatedAt || '';
-        if (manual || !isInitialLoadDoneRef.current || cloudTime !== lastCloudTimestampRef.current) {
+        const remoteTimestamp = new Date(cloudTime).getTime();
+        const localTimestamp = new Date(lastCloudTimestampRef.current).getTime();
+        const isRemoteNewer = !isNaN(remoteTimestamp) && (!localTimestamp || remoteTimestamp > localTimestamp);
+
+        if (manual || !isInitialLoadDoneRef.current || (isRemoteNewer && !isLocalDirtyRef.current)) {
           isApplyingCloudUpdateRef.current = true;
           applyCloudData(cloudData);
 
           lastCloudTimestampRef.current = cloudTime;
+          try { localStorage.setItem('simops_last_sync_time', cloudTime); } catch (e) {}
           const now = new Date();
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
           setCloudSyncedAt(timeStr);
 
           setTimeout(() => {
             isApplyingCloudUpdateRef.current = false;
-          }, 400);
+          }, 1500);
 
           if (manual) {
-            showToast("Sinkronisasi berhasil! Seluruh data telah terpadu dengan semua perangkat.");
+            showToast("Sinkronisasi berhasil! Seluruh data telah terpadu.");
           }
         }
       }
@@ -439,28 +466,21 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. Initial Load, Tab Focus Re-Sync & 10s Background Auto-Polling
+  // 1. Initial Load & Tab Visibility Re-Sync (Safe Non-Destructive Sync)
   useEffect(() => {
     syncFromCloud(false);
 
-    // Auto-sync when user returns to this browser tab (from another tab or app)
-    const handleFocus = () => syncFromCloud(false);
+    // Auto-sync only when user returns to this browser tab and has NO dirty unsaved changes
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') syncFromCloud(false);
+      if (document.visibilityState === 'visible' && !isLocalDirtyRef.current && !isSavingRef.current) {
+        syncFromCloud(false);
+      }
     };
 
-    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Multi-device polling every 10 seconds
-    const intervalTimer = setInterval(() => {
-      syncFromCloud(false);
-    }, 10000);
-
     return () => {
-      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
-      clearInterval(intervalTimer);
     };
   }, []);
 
@@ -468,14 +488,20 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!isInitialLoadDoneRef.current || isApplyingCloudUpdateRef.current) return;
 
+    isLocalDirtyRef.current = true;
+
     if (syncDebounceTimerRef.current) {
       clearTimeout(syncDebounceTimerRef.current);
     }
 
     syncDebounceTimerRef.current = setTimeout(async () => {
       try {
+        isSavingRef.current = true;
         setIsCloudSyncing(true);
         const newTimestamp = new Date().toISOString();
+        lastCloudTimestampRef.current = newTimestamp;
+        try { localStorage.setItem('simops_last_sync_time', newTimestamp); } catch (e) {}
+
         const payload = {
           gtkList,
           siswaList,
@@ -504,20 +530,23 @@ export const App: React.FC = () => {
         }
 
         // B. Simpan ke KV / backend /api/database
-        const res = await fetch('/api/database', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          lastCloudTimestampRef.current = newTimestamp;
-          const now = new Date();
-          setCloudSyncedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        try {
+          await fetch('/api/database', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } catch (kvErr) {
+          console.warn('KV backend save warning:', kvErr);
         }
+
+        const now = new Date();
+        setCloudSyncedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        isLocalDirtyRef.current = false;
       } catch (err) {
         console.warn('Cloud sync post failed:', err);
       } finally {
+        isSavingRef.current = false;
         setIsCloudSyncing(false);
       }
     }, 800);

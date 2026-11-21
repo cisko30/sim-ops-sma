@@ -396,11 +396,14 @@ export async function pushFullStateToSupabase(payload: SupabaseSyncPayload): Pro
  */
 async function pushRelationalTables(cfg: SupabaseConfig, payload: SupabaseSyncPayload) {
   if (payload.isCleared) {
-    // Jika diperintahkan kosongkan database: hapus isi tabel
+    // Jika diperintahkan kosongkan database: hapus isi seluruh tabel
     await Promise.allSettled([
       fetch(`${cfg.url}/rest/v1/siswa?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) }),
       fetch(`${cfg.url}/rest/v1/gtk?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) }),
+      fetch(`${cfg.url}/rest/v1/rombel?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) }),
+      fetch(`${cfg.url}/rest/v1/mapel?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) }),
       fetch(`${cfg.url}/rest/v1/jurnal_harian?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) }),
+      fetch(`${cfg.url}/rest/v1/transaksi_keuangan?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) }),
       fetch(`${cfg.url}/rest/v1/aktivitas_timeline?id=neq.empty`, { method: 'DELETE', headers: getHeaders(cfg.anonKey) })
     ]);
     return;
@@ -479,7 +482,26 @@ async function pushRelationalTables(cfg: SupabaseConfig, payload: SupabaseSyncPa
     });
   }
 
-  // D. Upsert Jurnal Harian
+  // D. Upsert Mapel (Struktur Kurikulum)
+  if (Array.isArray(payload.mapelList) && payload.mapelList.length > 0) {
+    const mapelRows = payload.mapelList.map(m => ({
+      id: m.id,
+      kode_mapel: m.kodeMapel,
+      nama_mapel: m.namaMapel,
+      kategori: m.kategori,
+      fase: m.fase,
+      alokasi_jp: Number(m.alokasiJp) || 0,
+      guru_pengampu: m.guruPengampu || ''
+    }));
+
+    await fetch(`${cfg.url}/rest/v1/mapel`, {
+      method: 'POST',
+      headers: getHeaders(cfg.anonKey, 'resolution=merge-duplicates'),
+      body: JSON.stringify(mapelRows)
+    }).catch(() => {});
+  }
+
+  // E. Upsert Jurnal Harian
   if (Array.isArray(payload.journals) && payload.journals.length > 0) {
     const journalRows = payload.journals.map(j => ({
       id: j.id,
